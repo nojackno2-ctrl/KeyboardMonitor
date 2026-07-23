@@ -6,7 +6,8 @@
 
 ## Repository state
 
-- 工作目錄原先不是 Git 儲存庫；2026-07-23 已初始化為 `main`，尚無提交或遠端。
+- 工作目錄原先不是 Git 儲存庫；2026-07-23 已初始化為 `main`。
+- 初始提交為 `d049844`（`完整檢查並強化鍵盤滑鼠診斷工具`）；提交後工作樹乾淨，尚無遠端。
 - 專案為單一 `KeyboardMonitor.csproj`（.NET 8 Windows Forms）與 `KeyboardMonitor.cs`。
 - `KeyboardMonitor.cs.bak`、`.vs/`、`bin/`、`obj/` 是既有本機檔案；尚未納入 Git。
 - 原先缺少 `AGENTS.md` 與 `AI_HANDOFF.md`，已依協作規範建立。
