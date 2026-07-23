@@ -38,7 +38,8 @@
 - 2026-07-23：已建立並推送公開儲存庫 `https://github.com/nojackno2-ctrl/KeyboardMonitor`，預設分支為 `main`，本機 `main` 追蹤 `origin/main`。
 - 首次遠端 CI run `29989550172` 全綠：Restore、Build、6/6 回歸測試與格式檢查均通過。
 - 遠端提交 `449f2df` 的 CI run `29989658649` 亦全綠，確認最後程式碼與交接更新在 GitHub runner 上可建置、測試並通過格式檢查。
-- 目前沒有已知未解問題；本機與遠端 `main` 已同步。
+- 遠端提交 `d42a6e8` 的 CI run `29989746345` 功能全綠，但 GitHub 標註 `actions/checkout@v4` 與 `actions/setup-dotnet@v4` 使用已淘汰的 Node.js 20。
+- 官方最新 release 與 major tag 已確認為 `actions/checkout@v7`、`actions/setup-dotnet@v6`；工作流程已升級，須以最新 CI 確認警告消失。
 
 ## Constraints
 
@@ -48,4 +49,5 @@
 
 ## Next actions
 
-無待辦；後續功能變更請從最新 `main` 開始。
+1. 提交並推送 action major 升級。
+2. 確認最新 CI 全綠且無 Node.js 20 annotation。
