@@ -7,7 +7,7 @@
 ## Repository state
 
 - 工作目錄原先不是 Git 儲存庫；2026-07-23 已初始化為 `main`。
-- 初始提交為 `d049844`（`完整檢查並強化鍵盤滑鼠診斷工具`）；提交後工作樹乾淨，尚無遠端。
+- 初始提交為 `d049844`（`完整檢查並強化鍵盤滑鼠診斷工具`）。
 - 專案為單一 `KeyboardMonitor.csproj`（.NET 8 Windows Forms）與 `KeyboardMonitor.cs`。
 - `KeyboardMonitor.cs.bak`、`.vs/`、`bin/`、`obj/` 是既有本機檔案；尚未納入 Git。
 - 原先缺少 `AGENTS.md` 與 `AI_HANDOFF.md`，已依協作規範建立。
@@ -32,14 +32,15 @@
 - 2026-07-23：100%、80% TKL、60% 三種配置均已實際切換並截圖檢查；修正後下方面板與提示文字無裁切。
 - 2026-07-23：清除重設已實測，日誌回到單一重設事件、按鍵狀態清空；關閉按鈕可正常退出且程序消失。
 - 靜態掃描未發現網路、檔案寫入、登錄、剪貼簿或外部程序啟動；原生呼叫僅限 System32 的 user32/kernel32 Hook API。
-- GitHub CLI 2.95.0 已安裝，Git identity 為 `Jackie Chen <nojackno2@hotmail.com.tw>`；`nojackno2-ctrl/KeyboardMonitor` 尚不存在或目前無法存取。
+- GitHub CLI 2.95.0 已安裝，Git identity 為 `Jackie Chen <nojackno2@hotmail.com.tw>`。
 - 2026-07-23：使用者完成 GitHub 裝置登入；沙箱外 `gh auth status` 已確認 `nojackno2-ctrl` 為作用中帳號，具備 `repo` 與 `workflow` scope。
 - 使用者指定建立公開儲存庫 `nojackno2-ctrl/KeyboardMonitor`。
 - 2026-07-23：已建立並推送公開儲存庫 `https://github.com/nojackno2-ctrl/KeyboardMonitor`，預設分支為 `main`，本機 `main` 追蹤 `origin/main`。
 - 首次遠端 CI run `29989550172` 全綠：Restore、Build、6/6 回歸測試與格式檢查均通過。
 - 遠端提交 `449f2df` 的 CI run `29989658649` 亦全綠，確認最後程式碼與交接更新在 GitHub runner 上可建置、測試並通過格式檢查。
 - 遠端提交 `d42a6e8` 的 CI run `29989746345` 功能全綠，但 GitHub 標註 `actions/checkout@v4` 與 `actions/setup-dotnet@v4` 使用已淘汰的 Node.js 20。
-- 官方最新 release 與 major tag 已確認為 `actions/checkout@v7`、`actions/setup-dotnet@v6`；工作流程已升級，須以最新 CI 確認警告消失。
+- 官方最新 release 與 major tag 已確認為 `actions/checkout@v7`、`actions/setup-dotnet@v6`；工作流程已升級。
+- 遠端提交 `1455f2a` 的 CI run `29989895953` 全綠，且不再出現 Node.js 20 淘汰 annotation。
 
 ## Constraints
 
@@ -49,5 +50,4 @@
 
 ## Next actions
 
-1. 提交並推送 action major 升級。
-2. 確認最新 CI 全綠且無 Node.js 20 annotation。
+- 目前沒有已知待處理問題；公開發佈與遠端驗證已完成。
