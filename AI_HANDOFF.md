@@ -35,6 +35,8 @@
 - GitHub CLI 2.95.0 已安裝，Git identity 為 `Jackie Chen <nojackno2@hotmail.com.tw>`；`nojackno2-ctrl/KeyboardMonitor` 尚不存在或目前無法存取。
 - 2026-07-23：使用者完成 GitHub 裝置登入；沙箱外 `gh auth status` 已確認 `nojackno2-ctrl` 為作用中帳號，具備 `repo` 與 `workflow` scope。
 - 使用者指定建立公開儲存庫 `nojackno2-ctrl/KeyboardMonitor`。
+- 2026-07-23：已建立並推送公開儲存庫 `https://github.com/nojackno2-ctrl/KeyboardMonitor`，預設分支為 `main`，本機 `main` 追蹤 `origin/main`。
+- 首次遠端 CI run `29989550172` 全綠：Restore、Build、6/6 回歸測試與格式檢查均通過。
 
 ## Constraints
 
@@ -44,6 +46,5 @@
 
 ## Next actions
 
-1. 提交本次登入／發佈狀態更新。
-2. 建立公開儲存庫 `nojackno2-ctrl/KeyboardMonitor` 並推送 `main`。
-3. 確認遠端提交與 GitHub Actions CI 狀態。
+1. 提交並推送本次公開發佈與 CI 結果。
+2. 確認最後遠端提交、工作樹與最新 CI 均一致。
