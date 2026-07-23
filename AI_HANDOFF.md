@@ -33,7 +33,8 @@
 - 2026-07-23：清除重設已實測，日誌回到單一重設事件、按鍵狀態清空；關閉按鈕可正常退出且程序消失。
 - 靜態掃描未發現網路、檔案寫入、登錄、剪貼簿或外部程序啟動；原生呼叫僅限 System32 的 user32/kernel32 Hook API。
 - GitHub CLI 2.95.0 已安裝，Git identity 為 `Jackie Chen <nojackno2@hotmail.com.tw>`；`nojackno2-ctrl/KeyboardMonitor` 尚不存在或目前無法存取。
-- GitHub CLI 的 `nojackno2-ctrl` 登入 token 已失效；推送前必須由使用者重新執行 `gh auth login -h github.com`。
+- 2026-07-23：使用者完成 GitHub 裝置登入；沙箱外 `gh auth status` 已確認 `nojackno2-ctrl` 為作用中帳號，具備 `repo` 與 `workflow` scope。
+- 使用者指定建立公開儲存庫 `nojackno2-ctrl/KeyboardMonitor`。
 
 ## Constraints
 
@@ -43,6 +44,6 @@
 
 ## Next actions
 
-1. 確認 GitHub CLI 登入與目標儲存庫。
-2. 初始化 Git、建立有意義的初始提交並推送至 GitHub。
-3. 確認遠端 CI／PR 或新專案發佈狀態。
+1. 提交本次登入／發佈狀態更新。
+2. 建立公開儲存庫 `nojackno2-ctrl/KeyboardMonitor` 並推送 `main`。
+3. 確認遠端提交與 GitHub Actions CI 狀態。
