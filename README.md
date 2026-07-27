@@ -1,43 +1,70 @@
 # Keyboard Monitor
 
-Windows 鍵盤與滑鼠診斷工具，可即時顯示實體按鍵狀態、卡鍵、按壓持續時間、每秒按鍵數、打字速度，以及滑鼠按鍵與滾輪事件。
+Windows 鍵盤與滑鼠診斷工具。可即時顯示實體按鍵狀態、偵測卡鍵、量測按鍵持續時間與打字速度，並同步記錄滑鼠按鍵與滾輪事件。
+
+適合用來檢查新鍵盤是否有失靈或卡住的按鍵、確認全鍵無衝突（同時按下多鍵）的表現，或單純測試自己的打字速度。
 
 ## 功能
 
-- 支援 100%、80% TKL 與 60% 鍵盤配置。
-- 使用 Windows 全域低階 Hook 偵測鍵盤與滑鼠事件。
-- 區分左右 Shift、Ctrl、Alt，以及主鍵盤／數字鍵盤共用鍵碼。
-- 顯示目前與最高 KPS、WPM、按鍵持續時間及最近 100 筆事件。
-- 按鍵持續超過 2 秒時標示為可能卡鍵。
-- 所有輸入事件只在本機記憶體中用於即時顯示；程式不儲存或傳送輸入內容。
+- **鍵盤配置顯示**：支援 100% 全尺寸、80% TKL 與 60% 緊湊型三種配置，可隨時切換。
+- **即時按鍵狀態**：按下的鍵會亮起，測試過的鍵維持標記，方便逐鍵檢查是否有無反應的按鍵。
+- **卡鍵偵測**：任一按鍵持續按住超過 2 秒即以紅色標示並顯示警告。
+- **精準按鍵辨識**：可區分左右 Shift、Ctrl、Alt，並正確分辨數字鍵盤與方向／導覽鍵（即使 NumLock 關閉）。
+- **速度量測**：顯示 WPM（每分鐘字數）、當前 KPS、最高 KPS 與最近一次按鍵的持續時間。
+- **滑鼠診斷**：偵測左鍵、右鍵、中鍵、側鍵（X1／X2）與滾輪上下捲動。
+- **即時事件日誌**：保留最近的鍵盤與滑鼠事件並附上時間戳記。
+
+## 隱私說明
+
+所有輸入事件只在本機記憶體中用於即時顯示。程式不會寫入檔案、不會連線網路，也不會儲存或傳送任何輸入內容；關閉視窗後所有紀錄即消失。
 
 ## 系統需求
 
 - Windows 10 或 Windows 11
-- [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)，或使用自包含發佈版本
+- [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)（若使用自包含發佈版本則不需要）
 
-## 建置與驗證
+## 使用方式
+
+1. 啟動程式後，視窗會自動開始監控整個桌面工作階段的鍵盤與滑鼠事件，不需要保持視窗在最前景。
+2. 從右上角下拉選單切換 100%／80%／60% 鍵盤配置。
+3. 依序按過鍵盤上每個按鍵，觀察是否有按鍵沒有亮起（可能失靈）或持續亮紅（可能卡鍵）。
+4. 在「打字與延遲測試」文字框中輸入文字，即可看到 WPM 與 KPS 數值；按 <kbd>Esc</kbd> 可清空該文字框。
+5. 按「清除重設」可清空所有按鍵狀態、統計數值與事件日誌，重新開始測試。
+
+### 顏色說明
+
+| 顏色 | 意義 |
+| --- | --- |
+| 亮藍色 | 目前正被按下 |
+| 暗青色 | 已測試過（曾經按下） |
+| 紅色 | 可能卡鍵（持續按下超過 2 秒） |
+
+## 從原始碼建置與執行
 
 ```powershell
 dotnet build .\KeyboardMonitor.csproj -c Release
-dotnet run --project .\tests\KeyboardMonitor.Tests\KeyboardMonitor.Tests.csproj -c Release
-dotnet format .\KeyboardMonitor.csproj whitespace --verify-no-changes --no-restore
-```
-
-回歸執行器不依賴外部測試套件，涵蓋鍵碼解析、修飾鍵、導覽鍵／數字鍵盤、WPM 與 KPS 計算。
-
-## 執行
-
-```powershell
 dotnet run --project .\KeyboardMonitor.csproj -c Release
 ```
 
-程式會監控目前 Windows 桌面工作階段的全域鍵盤與滑鼠事件。關閉視窗後，程式會立即解除 Hook 並釋放計時器資源。
+### 產生自包含單一執行檔
 
-## 建立自包含單一執行檔
+不需在目標電腦安裝 .NET Runtime 即可執行：
 
 ```powershell
 dotnet publish .\KeyboardMonitor.csproj -c Release -r win-x64 --self-contained true `
   -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false `
   -o .\publish\win-x64
 ```
+
+輸出的 `KeyboardMonitor.exe` 位於 `publish\win-x64` 資料夾。
+
+## 常見問題
+
+**啟動時出現 Hook 安裝失敗的訊息？**
+程式需要安裝 Windows 全域低階輸入 Hook 才能運作。若有其他軟體佔用或系統政策限制，請嘗試以系統管理員身分執行。
+
+**部分按鍵按了沒有反應？**
+請先確認該鍵在其他程式中是否可用。某些鍵盤的巨集鍵、多媒體鍵或韌體層處理的按鍵不會產生標準的 Windows 鍵盤事件，因此不會顯示。
+
+**程式關不掉或事件持續累積？**
+關閉視窗時程式會立即解除鍵盤與滑鼠 Hook 並釋放資源，正常情況下程序會隨即結束。
