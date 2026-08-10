@@ -7,6 +7,8 @@
 
 專為 Windows 打造的現代化、輕量級全域鍵盤與滑鼠診斷工具。採用極簡現代深色主題（Dark Mode）與 Per-Monitor V2 高 DPI 支援，提供即時按鍵可視化、卡鍵警示、全域滑鼠偵測、按鍵延遲／持續時間測量與打字速率統計（WPM / KPS）。
 
+適合用來檢查新鍵盤是否有失靈或卡住的按鍵、確認全鍵無衝突（同時按下多鍵）的表現，或單純測試自己的打字速度。
+
 ---
 
 ## 🌟 核心特色
@@ -21,7 +23,7 @@
   - 精確區分左右修飾鍵（`Left Shift` / `Right Shift`、`Left Ctrl` / `Right Ctrl`、`Left Alt` / `Right Alt`）。
   - 精確區別主鍵盤導覽鍵（`Insert` / `Delete` / 方向鍵）與數字鍵盤（NumPad）共用虛擬碼。
 - **⚠️ 智慧卡鍵診斷 (Stuck Key Warning)**
-  - 按鍵持續按壓超過 2 秒即自動觸發卡鍵警示（琥珀色高亮），協助快速檢測軸體回彈不良或微動開關故障。
+  - 按鍵持續按壓超過 2 秒即自動觸發卡鍵警示（紅色/琥珀色高亮），協助快速檢測軸體回彈不良或微動開關故障。
 - **🖱️ 全方位滑鼠功能測試**
   - 即時檢測左鍵、右鍵、中鍵滾輪、側鍵（XButton 1 / 2）。
   - 支援滾輪滾動方向與數值、點擊座標與雙擊測試。
@@ -37,7 +39,7 @@
 
 ---
 
-## 🖥️ 介面預覽與狀態說明
+## 🖥️ 介面說明與色彩狀態
 
 ### 按鍵顏色狀態
 
@@ -46,12 +48,12 @@
 | **預設常態 (Idle)** | 深灰底色、淺灰邊框 | 尚未觸發或已重設之按鍵 |
 | **目前按下 (Pressed)** | 亮青綠色 (Cyan) 高亮 | 實體按鍵正在按壓中 |
 | **已觸發過 (Triggered)** | 靛藍色 (Indigo) 標記 | 本次測試階段曾被成功觸發 |
-| **卡鍵警告 (Stuck Key)** | 琥珀黃/紅 (Amber) 警示 | 按鍵持續按壓超過 2 秒，提示可能卡鍵 |
+| **卡鍵警告 (Stuck Key)** | 琥珀黃/紅 (Amber/Red) 警示 | 按鍵持續按壓超過 2 秒，提示可能卡鍵 |
 
 ### 四大診斷面板
 
 1. **滑鼠檢測區 (Mouse Tester)**：視覺化按鈕與滾輪狀態，支援五鍵滑鼠與雙擊測試。
-2. **打字測試區 (Typing Area)**：可自由輸入文字並即時換算 WPM 打字速度。
+2. **打字測試區 (Typing Area)**：可自由輸入文字並即時換算 WPM 打字速度；按 <kbd>Esc</kbd> 可快速清空。
 3. **效能統計區 (Metrics)**：即時顯示目前 KPS、Peak KPS 與最後按鍵持續時間（ms）。
 4. **即時日誌區 (Event Log)**：依時間序列顯示最近 100 筆按鍵/滑鼠事件。
 
@@ -113,7 +115,7 @@ dotnet publish .\KeyboardMonitor.csproj -c Release -r win-x64 `
 ```
 KeyboardMonitor/
 ├── KeyboardMonitor.cs         # WinForms 介面呈現、佈局繪製與使用者互動
-├── GlobalInputHook.cs          # Windows 全域低階 Hook (WH_KEYBOARD_LL / WH_MOUSE_LL)
+├── GlobalInputHook.cs         # Windows 全域低階 Hook (WH_KEYBOARD_LL / WH_MOUSE_LL)
 ├── KeyStateTracker.cs         # 執行緒安全的按鍵狀態追蹤、計時與卡鍵判定
 ├── InputMetrics.cs            # KPS (每秒按鍵數) 與 WPM (打字測速) 統計服務
 ├── KeyboardInput.cs           # Windows 虛擬鍵碼 (VK) 與掃描碼 (ScanCode) 解析引擎
@@ -144,6 +146,12 @@ KeyboardMonitor/
 <summary><b>Q3: 如何重設所有的按鍵測試紀錄？</b></summary>
 <br>
 點擊右上角的「重設 (Reset)」按鈕，即可將所有按鍵恢復至初始狀態，並清空日誌與 KPS 統計數據。
+</details>
+
+<details>
+<summary><b>Q4: 部分按鍵按了沒有反應？</b></summary>
+<br>
+請先確認該鍵在其他程式中是否可用。某些鍵盤的自訂巨集鍵、特殊多媒體鍵或韌體層獨立處理的按鍵不會產生標準 Windows 鍵盤事件，因此不會在系統層級捕捉。
 </details>
 
 ---
