@@ -2,15 +2,15 @@
 
 ## Current objective
 
-完整檢查程式，修正已知問題，完成可重現的驗證後發佈到 GitHub。
+已完成對外繁體中文 `README.md` 的全面編寫與美化，並通過本機建置、9/9 組回歸測試與程式碼格式驗證；後續維持維護狀態，待使用者確認提交或發布新版本標籤。
 
 ## Repository state
 
 - 工作目錄原先不是 Git 儲存庫；2026-07-23 已初始化為 `main`。
 - 初始提交為 `d049844`（`完整檢查並強化鍵盤滑鼠診斷工具`）。
-- 專案為單一 `KeyboardMonitor.csproj`（.NET 8 Windows Forms）與 `KeyboardMonitor.cs`。
+- 專案為單一 `KeyboardMonitor.csproj`（.NET 8 Windows Forms）與模組化架構。
 - `KeyboardMonitor.cs.bak`、`.vs/`、`bin/`、`obj/` 是既有本機檔案；尚未納入 Git。
-- 原先缺少 `AGENTS.md` 與 `AI_HANDOFF.md`，已依協作規範建立。
+- 已依協作規範維護 `AGENTS.md`、`AI_HANDOFF.md` 與對外繁體中文 `README.md`。
 
 ## Evidence and findings
 
@@ -41,6 +41,16 @@
 - 遠端提交 `d42a6e8` 的 CI run `29989746345` 功能全綠，但 GitHub 標註 `actions/checkout@v4` 與 `actions/setup-dotnet@v4` 使用已淘汰的 Node.js 20。
 - 官方最新 release 與 major tag 已確認為 `actions/checkout@v7`、`actions/setup-dotnet@v6`；工作流程已升級。
 - 遠端提交 `1455f2a` 的 CI run `29989895953` 全綠，且不再出現 Node.js 20 淘汰 annotation。
+- 2026-08-03：開始第二階段重構，新增 `GlobalInputHook`、`KeyStateTracker`、`InputMetrics` 與 `MonotonicClock`，尚待本機建置與回歸驗證。
+- 2026-08-03：CI 新增自包含 `win-x64` 發布、SHA-256 校驗檔、artifact 上傳與 `v*` 標籤 GitHub Release 流程，尚待 YAML／遠端執行驗證。
+- 2026-08-03：實機啟動重構後單檔程式，確認全域鍵盤／滑鼠 Hook、按鍵持續時間與 UI 日誌正常；測試 WPM 時發現每秒統計 Timer 未重繪 WPM，已補上每秒 WPM 刷新，尚待重新建置與重測。
+- 2026-08-03：本機首次以 `--no-restore` 發布時發現 runtime 資產未納入 `win-x64`；CI Restore 已改為帶 `-r win-x64`，並將 native runtime 一併封入單檔。
+- 2026-08-03：CI 另加入回歸測試專案的 whitespace format check；主程式與測試專案本機格式驗證均通過。
+- 2026-08-03：重構後 Release build 成功，0 警告／0 錯誤；回歸測試 9/9 組通過；主程式與測試專案格式檢查均通過。
+- 2026-08-03：最終 `win-x64` 自包含單檔發布成功，輸出僅 `KeyboardMonitor.exe`，大小 161,651,794 bytes，SHA-256 `59769AAD13897AA87769DCCAA24DF58D387AE56ED2BE2901CC895EBA87628DB1`。
+- 2026-08-03：最終發布檔本機煙霧測試可啟動並正常關閉；先前重構版 UI 實測已確認鍵盤／滑鼠 Hook、日誌與按鍵持續時間正常。最後一行 WPM 重繪修正已完成建置與測試，但因 Windows UI automation helper 後續回報已有 active request，未重新取得最終版畫面截圖。
+- 2026-08-10：更新繁體中文對外公開 `README.md`，完善包含徽章（Badges）、核心亮點、介面與色彩狀態說明、四大診斷面板、下載指南、本機建置與自包含單檔打包命令、模組架構圖與常見問題（FAQ）。
+- 2026-08-10：本機驗證 Release build、9/9 組回歸測試與程式碼格式檢查均通過（0 警告／0 錯誤）。
 
 ## Constraints
 
@@ -50,4 +60,6 @@
 
 ## Next actions
 
-- 目前沒有已知待處理問題；公開發佈與遠端驗證已完成。
+- 推送變更後觀察 GitHub Actions 的 runtime restore、發布 artifact 與 `v*` Release job。
+- 若需要公開發布，建立並推送 `v1.0.0`（或下一個版本）標籤。
+- 保留目前未提交變更，等待使用者檢閱後再決定是否提交／推送。
