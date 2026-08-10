@@ -2,6 +2,10 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
+    <!-- 明確宣告 RID：確保任何一次 restore（包含測試專案經 ProjectReference 觸發的隱含
+         restore）都會在 project.assets.json 產生 net8.0-windows/win-x64 target，
+         否則後續以 no-restore 模式 publish 會失敗 (NETSDK1047)。 -->
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <UseWindowsForms>true</UseWindowsForms>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>disable</ImplicitUsings>
