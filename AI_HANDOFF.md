@@ -2,7 +2,7 @@
 
 ## Current objective
 
-已完成對外繁體中文 `README.md` 的全面編寫與美化，並通過本機建置、9/9 組回歸測試與程式碼格式驗證；後續維持維護狀態，待使用者確認提交或發布新版本標籤。
+已完成 v1.0.0 官方正式版發布（GitHub Release 包含 Single-File Executable `KeyboardMonitor.exe` 與 SHA-256 校驗檔）；後續維持維護狀態。
 
 ## Repository state
 
