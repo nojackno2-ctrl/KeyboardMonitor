@@ -1,4 +1,5 @@
 using KeyboardDiagnostic;
+using System;
 
 var tests = new (string Name, Action Run)[]
 {
@@ -7,7 +8,10 @@ var tests = new (string Name, Action Run)[]
     ("navigation and numpad overlap", TestNavigationAndNumpad),
     ("OEM and unknown keys", TestOemAndUnknownKeys),
     ("words-per-minute calculation", TestWordsPerMinute),
-    ("KPS sampling and reset", TestKeyRateCounter)
+    ("KPS sampling and reset", TestKeyRateCounter),
+    ("monotonic key state and stuck detection", TestKeyStateTracker),
+    ("typing metrics and reset", TestTypingMetrics),
+    ("thread-safe services and hook disposal", TestThreadSafetyAndLifecycle)
 };
 
 int failed = 0;
@@ -93,10 +97,90 @@ static void TestKeyRateCounter()
     Equal(0, counter.Peak);
 }
 
+static void TestKeyStateTracker()
+{
+    var clock = new FakeClock();
+    var tracker = new KeyStateTracker(clock);
+
+    Equal(true, tracker.Press("A"));
+    Equal(false, tracker.Press("A"));
+    clock.Advance(250);
+
+    KeyReleaseResult release = tracker.Release("A");
+    Equal(true, release.WasPressed);
+    Equal(250.0, release.DurationMilliseconds);
+    Equal(false, tracker.Release("A").WasPressed);
+
+    Equal(true, tracker.Press("B"));
+    clock.Advance(2000);
+    var stuckKeys = tracker.MarkStuck(TimeSpan.FromSeconds(2));
+    Equal(1, stuckKeys.Count);
+    Equal("B", stuckKeys[0]);
+    Equal(1, tracker.GetSnapshot().ActiveKeyCount);
+    Equal(1, tracker.GetSnapshot().StuckKeys.Count);
+
+    tracker.Reset();
+    Equal(0, tracker.GetSnapshot().ActiveKeyCount);
+}
+
+static void TestTypingMetrics()
+{
+    var clock = new FakeClock();
+    var metrics = new TypingMetrics(clock);
+
+    metrics.ObserveCharacterCount(25);
+    Equal(0, metrics.CalculateWordsPerMinute(25));
+    clock.Advance(60_000);
+    Equal(5, metrics.CalculateWordsPerMinute(25));
+
+    metrics.Reset();
+    Equal(0, metrics.CalculateWordsPerMinute(25));
+}
+
+static void TestThreadSafetyAndLifecycle()
+{
+    var counter = new KeyRateCounter();
+    Parallel.For(0, 1000, _ => counter.RecordPress());
+    Equal(1000, counter.Sample());
+
+    var tracker = new KeyStateTracker();
+    Parallel.For(0, 100, index => tracker.Press($"KEY_{index}"));
+    Equal(100, tracker.GetSnapshot().ActiveKeyCount);
+    Parallel.For(0, 100, index => tracker.Release($"KEY_{index}"));
+    Equal(0, tracker.GetSnapshot().ActiveKeyCount);
+
+    var hook = new GlobalInputHook();
+    Equal(false, hook.IsStarted);
+    hook.Stop();
+    hook.Dispose();
+    hook.Dispose();
+    Equal(false, hook.IsStarted);
+}
+
 static void Equal<T>(T expected, T actual)
 {
     if (!EqualityComparer<T>.Default.Equals(expected, actual))
     {
         throw new InvalidOperationException($"expected <{expected}>, actual <{actual}>");
+    }
+}
+
+sealed class FakeClock : IMonotonicClock
+{
+    private long _timestamp;
+
+    public long GetTimestamp()
+    {
+        return _timestamp;
+    }
+
+    public double GetElapsedMilliseconds(long startTimestamp)
+    {
+        return _timestamp - startTimestamp;
+    }
+
+    public void Advance(long milliseconds)
+    {
+        _timestamp += milliseconds;
     }
 }

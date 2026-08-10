@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: ["main"]
+    tags: ["v*"]
   pull_request:
 
 permissions:
@@ -22,7 +23,7 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Restore
-        run: dotnet restore .\KeyboardMonitor.csproj
+        run: dotnet restore .\KeyboardMonitor.csproj -r win-x64
 
       - name: Build
         run: dotnet build .\KeyboardMonitor.csproj -c Release --no-restore
@@ -32,3 +33,61 @@ jobs:
 
       - name: Verify formatting
         run: dotnet format .\KeyboardMonitor.csproj whitespace --verify-no-changes --no-restore
+
+      - name: Verify test formatting
+        run: dotnet format .\tests\KeyboardMonitor.Tests\KeyboardMonitor.Tests.csproj whitespace --verify-no-changes --no-restore
+
+      - name: Publish self-contained single-file executable
+        if: github.event_name != 'pull_request'
+        run: >-
+          dotnet publish .\KeyboardMonitor.csproj -c Release -r win-x64
+          --self-contained true --no-restore
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:DebugType=None -p:DebugSymbols=false
+          -o .\artifacts\publish\win-x64
+
+      - name: Generate SHA-256 checksum
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: |
+          $artifactPath = Join-Path $env:GITHUB_WORKSPACE 'artifacts\publish\win-x64\KeyboardMonitor.exe'
+          if (-not (Test-Path -LiteralPath $artifactPath)) {
+            throw "Published executable not found: $artifactPath"
+          }
+
+          $hash = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash
+          $checksumPath = Join-Path $env:GITHUB_WORKSPACE 'artifacts\publish\win-x64\SHA256SUMS.txt'
+          "$hash  KeyboardMonitor.exe" | Set-Content -LiteralPath $checksumPath -Encoding utf8
+
+      - name: Upload published artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: KeyboardMonitor-${{ github.ref_name }}
+          path: .\artifacts\publish\win-x64
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-and-test
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download published artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: KeyboardMonitor-${{ github.ref_name }}
+          path: .\release
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "${{ github.ref_name }}"
+          --repo "${{ github.repository }}"
+          --title "KeyboardMonitor ${{ github.ref_name }}"
+          --generate-notes
+          .\release\KeyboardMonitor.exe .\release\SHA256SUMS.txt

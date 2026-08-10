@@ -4,7 +4,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.InteropServices;
+using System.ComponentModel;
 using System.Windows.Forms;
 
 namespace KeyboardDiagnostic
@@ -42,19 +42,9 @@ namespace KeyboardDiagnostic
             new string[] { "NUM_0", "", "NUM_.", "" } // NUM_0 與 NUM_ENTER 佔用
         };
 
-        // 按鍵狀態資訊類別
-        private sealed class KeyStateInfo
-        {
-            public string Status { get; set; }
-            public DateTime PressedTime { get; set; }
-        }
-
-        // 狀態字典與執行緒安全鎖
-        private readonly Dictionary<string, KeyStateInfo> _keyStates = new Dictionary<string, KeyStateInfo>();
-        private readonly object _stateLock = new object();
-
-        // 記錄按鍵按下時間戳，用以計算按壓延遲 (持續時間)
-        private readonly Dictionary<string, DateTime> _keyPressStartTimes = new Dictionary<string, DateTime>();
+        private readonly GlobalInputHook _inputHook = new GlobalInputHook();
+        private readonly KeyStateTracker _keyStateTracker = new KeyStateTracker();
+        private readonly TypingMetrics _typingMetrics = new TypingMetrics();
 
         // UI 元件字典
         private readonly Dictionary<string, KeyControl> _keyControls = new Dictionary<string, KeyControl>();
@@ -78,83 +68,9 @@ namespace KeyboardDiagnostic
         private Label _latencyLabel;
         private ListBox _logListBox;
         // 打字速度與按鍵計數統計
-        private DateTime? _typingStartTime;
         private readonly KeyRateCounter _keyRateCounter = new KeyRateCounter();
         private double _lastLatencyMs;
         private Timer _kpsTimer;
-
-        // Windows Hook API 宣告
-        private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
-        private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
-
-        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-        [DllImport("user32.dll", EntryPoint = "SetWindowsHookEx", CharSet = CharSet.Auto, SetLastError = true)]
-        private static extern IntPtr SetKeyboardHook(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
-
-        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-        [DllImport("user32.dll", EntryPoint = "SetWindowsHookEx", CharSet = CharSet.Auto, SetLastError = true)]
-        private static extern IntPtr SetMouseHook(int idHook, LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);
-
-        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool UnhookWindowsHookEx(IntPtr hhk);
-
-        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
-
-        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-        [DllImport("kernel32.dll", EntryPoint = "GetModuleHandleW", CharSet = CharSet.Unicode, SetLastError = true)]
-        private static extern IntPtr GetModuleHandle(string lpModuleName);
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct KBDLLHOOKSTRUCT
-        {
-            public uint vkCode;
-            public uint scanCode;
-            public uint flags;
-            public uint time;
-            public IntPtr dwExtraInfo;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct POINT
-        {
-            public int x;
-            public int y;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct MSLLHOOKSTRUCT
-        {
-            public POINT pt;
-            public uint mouseData;
-            public uint flags;
-            public uint time;
-            public IntPtr dwExtraInfo;
-        }
-
-        private const int WH_KEYBOARD_LL = 13;
-        private const int WH_MOUSE_LL = 14;
-        private const int WM_KEYDOWN = 0x0100;
-        private const int WM_KEYUP = 0x0101;
-        private const int WM_SYSKEYDOWN = 0x0104;
-        private const int WM_SYSKEYUP = 0x0105;
-        private const int WM_LBUTTONDOWN = 0x0201;
-        private const int WM_LBUTTONUP = 0x0202;
-        private const int WM_RBUTTONDOWN = 0x0204;
-        private const int WM_RBUTTONUP = 0x0205;
-        private const int WM_MBUTTONDOWN = 0x0207;
-        private const int WM_MBUTTONUP = 0x0208;
-        private const int WM_MOUSEWHEEL = 0x020A;
-        private const int WM_XBUTTONDOWN = 0x020B;
-        private const int WM_XBUTTONUP = 0x020C;
-
-        private IntPtr _hookID = IntPtr.Zero;
-        private IntPtr _mouseHookID = IntPtr.Zero;
-        private LowLevelKeyboardProc _proc;
-        private LowLevelMouseProc _mouseProc;
 
         [STAThread]
         public static void Main()
@@ -520,18 +436,20 @@ namespace KeyboardDiagnostic
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
-            _proc = HookCallback;
-            _mouseProc = MouseHookCallback;
-            _hookID = SetHook(_proc);
-            _mouseHookID = SetHook(_mouseProc);
+            _inputHook.KeyChanged += InputHook_KeyChanged;
+            _inputHook.MouseButtonChanged += InputHook_MouseButtonChanged;
+            _inputHook.MouseWheelScrolled += InputHook_MouseWheelScrolled;
+            _inputHook.CallbackError += InputHook_CallbackError;
 
-            if (_hookID == IntPtr.Zero || _mouseHookID == IntPtr.Zero)
+            try
             {
-                int errorCode = Marshal.GetLastWin32Error();
-                ReleaseHooks();
+                _inputHook.Start();
+            }
+            catch (Win32Exception exception)
+            {
                 MessageBox.Show(
                     this,
-                    $"無法安裝全域輸入監控 Hook（Win32 錯誤 {errorCode}）。程式將關閉。",
+                    $"無法安裝全域輸入監控 Hook（Win32 錯誤 {exception.NativeErrorCode}）。程式將關閉。",
                     "初始化失敗",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
@@ -541,7 +459,7 @@ namespace KeyboardDiagnostic
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            ReleaseHooks();
+            _inputHook.Stop();
             _watchdogTimer?.Stop();
             _kpsTimer?.Stop();
             base.OnFormClosing(e);
@@ -549,7 +467,7 @@ namespace KeyboardDiagnostic
 
         protected override void Dispose(bool disposing)
         {
-            ReleaseHooks();
+            _inputHook.Dispose();
             if (disposing)
             {
                 _watchdogTimer?.Dispose();
@@ -559,130 +477,38 @@ namespace KeyboardDiagnostic
             base.Dispose(disposing);
         }
 
-        private static IntPtr SetHook(LowLevelKeyboardProc proc)
+        private void InputHook_KeyChanged(string keyName, bool isPressed)
         {
-            using (System.Diagnostics.Process curProcess = System.Diagnostics.Process.GetCurrentProcess())
-            using (System.Diagnostics.ProcessModule curModule = curProcess.MainModule)
+            if (isPressed)
             {
-                return SetKeyboardHook(WH_KEYBOARD_LL, proc, GetModuleHandle(curModule.ModuleName), 0);
+                OnKeyDownEvent(keyName);
+            }
+            else
+            {
+                OnKeyUpEvent(keyName);
             }
         }
 
-        private static IntPtr SetHook(LowLevelMouseProc proc)
+        private void InputHook_MouseButtonChanged(string buttonName, bool isPressed)
         {
-            using (System.Diagnostics.Process curProcess = System.Diagnostics.Process.GetCurrentProcess())
-            using (System.Diagnostics.ProcessModule curModule = curProcess.MainModule)
-            {
-                return SetMouseHook(WH_MOUSE_LL, proc, GetModuleHandle(curModule.ModuleName), 0);
-            }
+            OnMouseChanged(buttonName, isPressed);
         }
 
-        private void ReleaseHooks()
+        private void InputHook_MouseWheelScrolled(int delta)
         {
-            if (_hookID != IntPtr.Zero)
-            {
-                UnhookWindowsHookEx(_hookID);
-                _hookID = IntPtr.Zero;
-            }
-
-            if (_mouseHookID != IntPtr.Zero)
-            {
-                UnhookWindowsHookEx(_mouseHookID);
-                _mouseHookID = IntPtr.Zero;
-            }
+            OnMouseWheelScrolled(delta);
         }
 
-        private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+        private void InputHook_CallbackError(Exception exception)
         {
-            if (nCode >= 0)
-            {
-                long message = (long)wParam;
-                if (message == WM_KEYDOWN || message == WM_SYSKEYDOWN)
-                {
-                    KBDLLHOOKSTRUCT kb = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
-                    string keyName = KeyboardInput.ParseKey(kb.vkCode, kb.scanCode, kb.flags);
-                    if (keyName != null)
-                    {
-                        OnKeyDownEvent(keyName);
-                    }
-                }
-                else if (message == WM_KEYUP || message == WM_SYSKEYUP)
-                {
-                    KBDLLHOOKSTRUCT kb = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
-                    string keyName = KeyboardInput.ParseKey(kb.vkCode, kb.scanCode, kb.flags);
-                    if (keyName != null)
-                    {
-                        OnKeyUpEvent(keyName);
-                    }
-                }
-            }
-            return CallNextHookEx(_hookID, nCode, wParam, lParam);
-        }
-
-        private IntPtr MouseHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
-        {
-            if (nCode >= 0)
-            {
-                int message = unchecked((int)(long)wParam);
-                MSLLHOOKSTRUCT mouseData = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
-
-                switch (message)
-                {
-                    case WM_LBUTTONDOWN:
-                        OnMouseChanged("L_BUTTON", true);
-                        break;
-                    case WM_LBUTTONUP:
-                        OnMouseChanged("L_BUTTON", false);
-                        break;
-                    case WM_RBUTTONDOWN:
-                        OnMouseChanged("R_BUTTON", true);
-                        break;
-                    case WM_RBUTTONUP:
-                        OnMouseChanged("R_BUTTON", false);
-                        break;
-                    case WM_MBUTTONDOWN:
-                        OnMouseChanged("M_BUTTON", true);
-                        break;
-                    case WM_MBUTTONUP:
-                        OnMouseChanged("M_BUTTON", false);
-                        break;
-                    case WM_XBUTTONDOWN:
-                    case WM_XBUTTONUP:
-                        int xButton = (int)((mouseData.mouseData >> 16) & 0xFFFF);
-                        OnMouseChanged(
-                            xButton == 1 ? "X1_BUTTON" : "X2_BUTTON",
-                            message == WM_XBUTTONDOWN);
-                        break;
-                    case WM_MOUSEWHEEL:
-                        short delta = unchecked((short)((mouseData.mouseData >> 16) & 0xFFFF));
-                        OnMouseWheelScrolled(delta);
-                        break;
-                }
-            }
-
-            return CallNextHookEx(_mouseHookID, nCode, wParam, lParam);
+            AddLog($"[Hook 錯誤] {exception.Message}");
         }
 
         private void OnKeyDownEvent(string keyName)
         {
-            bool isNewPress = false;
-            lock (_stateLock)
+            if (_keyStateTracker.Press(keyName))
             {
-                if (!_keyStates.TryGetValue(keyName, out KeyStateInfo state) || state.Status != "pressed")
-                {
-                    _keyStates[keyName] = new KeyStateInfo
-                    {
-                        Status = "pressed",
-                        PressedTime = DateTime.Now
-                    };
-                    _keyPressStartTimes[keyName] = DateTime.Now;
-                    isNewPress = true;
-                    _keyRateCounter.RecordPress();
-                }
-            }
-
-            if (isNewPress)
-            {
+                _keyRateCounter.RecordPress();
                 UpdateKeyUI(keyName, KeyControl.KeyState.Pressed);
                 AddLog($"[按下] {keyName}");
             }
@@ -690,62 +516,32 @@ namespace KeyboardDiagnostic
 
         private void OnKeyUpEvent(string keyName)
         {
-            double durationMs = 0;
-            bool isReleased = false;
-
-            lock (_stateLock)
-            {
-                isReleased = _keyStates.Remove(keyName);
-
-                if (_keyPressStartTimes.TryGetValue(keyName, out DateTime pressTime))
-                {
-                    durationMs = (DateTime.Now - pressTime).TotalMilliseconds;
-                    _keyPressStartTimes.Remove(keyName);
-                }
-            }
-
-            if (isReleased)
+            KeyReleaseResult release = _keyStateTracker.Release(keyName);
+            if (release.WasPressed)
             {
                 UpdateKeyUI(keyName, KeyControl.KeyState.Tested);
 
-                string durationStr = durationMs > 0 ? $" (持續 {durationMs:F0}ms)" : "";
+                string durationStr = release.DurationMilliseconds > 0
+                    ? $" (持續 {release.DurationMilliseconds:F0}ms)"
+                    : "";
                 AddLog($"[放開] {keyName}{durationStr}");
 
-                if (durationMs > 0)
+                if (release.DurationMilliseconds > 0)
                 {
-                    _lastLatencyMs = durationMs;
-                    UpdateLatencyUI(durationMs);
+                    _lastLatencyMs = release.DurationMilliseconds;
+                    UpdateLatencyUI(release.DurationMilliseconds);
                 }
             }
         }
 
         private void StuckWatchdog_Tick(object sender, EventArgs e)
         {
-            DateTime now = DateTime.Now;
-            List<string> stuckKeys = new List<string>();
-
-            lock (_stateLock)
-            {
-                foreach (var pair in _keyStates)
-                {
-                    if (pair.Value.Status == "pressed" && (now - pair.Value.PressedTime).TotalSeconds > 2.0)
-                    {
-                        stuckKeys.Add(pair.Key);
-                    }
-                }
-            }
+            IReadOnlyList<string> stuckKeys = _keyStateTracker.MarkStuck(TimeSpan.FromSeconds(2));
 
             foreach (var keyName in stuckKeys)
             {
                 UpdateKeyUI(keyName, KeyControl.KeyState.Stuck);
-                lock (_stateLock)
-                {
-                    if (_keyStates.TryGetValue(keyName, out KeyStateInfo state) && state.Status == "pressed")
-                    {
-                        state.Status = "stuck";
-                        AddLog($"[卡鍵] {keyName} (已按住 >2秒!)");
-                    }
-                }
+                AddLog($"[卡鍵] {keyName} (已按住 >2秒!)");
             }
         }
 
@@ -767,6 +563,7 @@ namespace KeyboardDiagnostic
         {
             _kpsLabel.Invalidate();
             _maxKpsLabel.Invalidate();
+            _wpmLabel.Invalidate();
         }
 
         private void UpdateLatencyUI(double durationMs)
@@ -781,18 +578,7 @@ namespace KeyboardDiagnostic
 
         private void TypeTextBox_TextChanged(object sender, EventArgs e)
         {
-            if (string.IsNullOrEmpty(_typeTextBox.Text))
-            {
-                _typingStartTime = null;
-                _wpmLabel.Invalidate();
-                return;
-            }
-
-            if (_typingStartTime == null)
-            {
-                _typingStartTime = DateTime.Now;
-            }
-
+            _typingMetrics.ObserveCharacterCount(_typeTextBox.TextLength);
             _wpmLabel.Invalidate();
         }
 
@@ -809,21 +595,9 @@ namespace KeyboardDiagnostic
                 ctrl.State = state;
             }
 
-            int pressedCount = 0;
-            List<string> stuckKeys = new List<string>();
-            DateTime now = DateTime.Now;
-
-            lock (_stateLock)
-            {
-                pressedCount = _keyStates.Count(x => x.Value.Status == "pressed" || x.Value.Status == "stuck");
-                foreach (var pair in _keyStates)
-                {
-                    if ((now - pair.Value.PressedTime).TotalSeconds > 2.0)
-                    {
-                        stuckKeys.Add(pair.Key);
-                    }
-                }
-            }
+            KeyStateSnapshot snapshot = _keyStateTracker.GetSnapshot();
+            int pressedCount = snapshot.ActiveKeyCount;
+            IReadOnlyList<string> stuckKeys = snapshot.StuckKeys;
 
             _countLabel.Text = $"當前按下鍵數: {pressedCount}";
 
@@ -853,14 +627,9 @@ namespace KeyboardDiagnostic
 
         private void ResetAll()
         {
-            lock (_stateLock)
-            {
-                _keyStates.Clear();
-                _keyPressStartTimes.Clear();
-            }
+            _keyStateTracker.Reset();
             _keyRateCounter.Reset();
-
-            _typingStartTime = null;
+            _typingMetrics.Reset();
             _lastLatencyMs = 0;
 
             foreach (var ctrl in _keyControls.Values)
@@ -1199,10 +968,8 @@ namespace KeyboardDiagnostic
 
         public string GetWPMString()
         {
-            if (_typingStartTime == null || string.IsNullOrEmpty(_typeTextBox.Text)) return "0";
-            return KeyboardInput.CalculateWordsPerMinute(
-                _typeTextBox.Text.Length,
-                DateTime.Now - _typingStartTime.Value).ToString(CultureInfo.InvariantCulture);
+            return _typingMetrics.CalculateWordsPerMinute(_typeTextBox.TextLength)
+                .ToString(CultureInfo.InvariantCulture);
         }
 
         public string GetKpsString(bool getMax = false)
