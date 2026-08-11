@@ -9,7 +9,8 @@
 - 工作目錄原先不是 Git 儲存庫；2026-07-23 已初始化為 `main`。
 - 初始提交為 `d049844`（`完整檢查並強化鍵盤滑鼠診斷工具`）。
 - 專案為單一 `KeyboardMonitor.csproj`（.NET 8 Windows Forms）與模組化架構。
-- `KeyboardMonitor.cs.bak`、`.vs/`、`bin/`、`obj/` 是既有本機檔案；尚未納入 Git。
+- `KeyboardMonitor.cs.bak` 已於 2026-08-11 清理完成。
+- 已補齊根目錄標準 MIT `LICENSE` 檔案。
 - 已依協作規範維護 `AGENTS.md`、`AI_HANDOFF.md` 與對外繁體中文 `README.md`。
 
 ## Evidence and findings
