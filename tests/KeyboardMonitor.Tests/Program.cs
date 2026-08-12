@@ -1,5 +1,8 @@
 using KeyboardDiagnostic;
 using System;
+using System.Drawing;
+using System.Reflection;
+using System.Windows.Forms;
 
 var tests = new (string Name, Action Run)[]
 {
@@ -11,7 +14,8 @@ var tests = new (string Name, Action Run)[]
     ("KPS sampling and reset", TestKeyRateCounter),
     ("monotonic key state and stuck detection", TestKeyStateTracker),
     ("typing metrics and reset", TestTypingMetrics),
-    ("thread-safe services and hook disposal", TestThreadSafetyAndLifecycle)
+    ("thread-safe services and hook disposal", TestThreadSafetyAndLifecycle),
+    ("cached paint resources and control disposal lifetime", TestKeyControlAndMouseTesterPaintLifetime)
 };
 
 int failed = 0;
@@ -155,6 +159,76 @@ static void TestThreadSafetyAndLifecycle()
     hook.Dispose();
     hook.Dispose();
     Equal(false, hook.IsStarted);
+}
+
+static void TestKeyControlAndMouseTesterPaintLifetime()
+{
+    // KeyControl／MouseTesterControl 衍生自 WinForms Control，需要 STA 執行緒才能安全建立與操作。
+    Exception? failure = null;
+    var thread = new System.Threading.Thread(() =>
+    {
+        try
+        {
+            RunPaintLifetimeChecks();
+        }
+        catch (Exception ex)
+        {
+            failure = ex;
+        }
+    });
+    thread.SetApartmentState(System.Threading.ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+
+    if (failure != null)
+    {
+        throw failure;
+    }
+}
+
+static void RunPaintLifetimeChecks()
+{
+    FieldInfo borderPensField = typeof(KeyControl).GetField("BorderPens", BindingFlags.NonPublic | BindingFlags.Static)
+        ?? throw new InvalidOperationException("KeyControl.BorderPens field not found.");
+    var borderPens = (Pen[])borderPensField.GetValue(null)!;
+    Equal(Enum.GetValues(typeof(KeyControl.KeyState)).Length, borderPens.Length);
+
+    using var bitmap = new Bitmap(160, 40);
+    using var graphics = Graphics.FromImage(bitmap);
+
+    var keyA = new KeyControl { KeyText = "A", Size = new Size(80, 40) };
+    var keyB = new KeyControl { KeyText = "B", Size = new Size(80, 40) };
+
+    foreach (KeyControl.KeyState state in Enum.GetValues(typeof(KeyControl.KeyState)))
+    {
+        keyA.State = state;
+        keyB.State = state;
+        InvokeOnPaint(keyA, graphics);
+        InvokeOnPaint(keyB, graphics);
+    }
+
+    var mouseTester = new MouseTesterControl { Size = new Size(200, 210) };
+    InvokeOnPaint(mouseTester, graphics);
+    mouseTester.LPressed = true;
+    mouseTester.RegisterScroll(1);
+    InvokeOnPaint(mouseTester, graphics);
+    mouseTester.ResetMouse();
+
+    keyA.Dispose();
+    keyB.Dispose();
+    mouseTester.Dispose();
+
+    // 重複 Dispose 不應拋出例外，確保快取資源與計時器安全解除。
+    keyA.Dispose();
+    mouseTester.Dispose();
+}
+
+static void InvokeOnPaint(Control control, Graphics graphics)
+{
+    MethodInfo method = typeof(Control).GetMethod("OnPaint", BindingFlags.NonPublic | BindingFlags.Instance)
+        ?? throw new InvalidOperationException("Control.OnPaint method not found.");
+    using var args = new PaintEventArgs(graphics, control.ClientRectangle);
+    method.Invoke(control, new object[] { args });
 }
 
 static void Equal<T>(T expected, T actual)
