@@ -1,5 +1,9 @@
 # AI Handoff
 
+## 2026-08-12 v1.0.1 publication
+
+- Published GitHub Release `v1.0.1` from `4407a4eda4bdce06d122a04acc84802353a629bb`; tag workflow succeeded. Downloaded EXE SHA-256 `4C5D703D3768E35B258B0D82E5B0C7DCBB1735E66BE486055BC3445C1785DA6B` matched GitHub and checksum. No existing installed copy was found, so no new install location was invented.
+
 ## 2026-08-12 v1.0.1 optimization baseline
 
 - Baseline was inspected before edits: clean `main` at `002f299`, tracking `origin/main`, with no uncommitted diff. `AGENTS.md`, this handoff, and the latest eight commits were reviewed.
