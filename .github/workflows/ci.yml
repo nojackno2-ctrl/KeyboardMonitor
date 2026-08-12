@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
@@ -75,6 +77,34 @@ jobs:
       contents: write
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Verify tag matches VersionPrefix
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $tag = $env:RELEASE_TAG
+          if ($tag -notmatch '^v(.+)$') {
+            throw "Tag '$tag' does not start with 'v'."
+          }
+          $tagVersion = $Matches[1]
+
+          $csprojContent = Get-Content -Raw -LiteralPath '.\KeyboardMonitor.csproj'
+          if ($csprojContent -notmatch '<VersionPrefix[^>]*>([^<]+)</VersionPrefix>') {
+            throw "Could not find VersionPrefix in KeyboardMonitor.csproj."
+          }
+          $projectVersion = $Matches[1]
+
+          if ($tagVersion -ne $projectVersion) {
+            throw "Tag '$tag' (version '$tagVersion') does not match VersionPrefix '$projectVersion' in KeyboardMonitor.csproj. Release aborted."
+          }
+
+          Write-Host "Tag '$tag' matches VersionPrefix '$projectVersion'."
+
       - name: Download published artifact
         uses: actions/download-artifact@v4
         with:
@@ -85,9 +115,11 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
         run: >-
-          gh release create "${{ github.ref_name }}"
-          --repo "${{ github.repository }}"
-          --title "KeyboardMonitor ${{ github.ref_name }}"
+          gh release create "$env:RELEASE_TAG"
+          --repo "$env:RELEASE_REPOSITORY"
+          --title "KeyboardMonitor $env:RELEASE_TAG"
           --generate-notes
           .\release\KeyboardMonitor.exe .\release\SHA256SUMS.txt
