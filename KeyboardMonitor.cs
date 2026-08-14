@@ -1,14 +1,69 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.Linq;
-using System.ComponentModel;
 using System.Windows.Forms;
 
 namespace KeyboardDiagnostic
 {
+    internal static class DiagnosticTheme
+    {
+        public static readonly Color Canvas = Color.FromArgb(14, 18, 26);
+        public static readonly Color Surface = Color.FromArgb(23, 28, 38);
+        public static readonly Color SurfaceRaised = Color.FromArgb(31, 38, 51);
+        public static readonly Color Input = Color.FromArgb(17, 23, 34);
+        public static readonly Color Border = Color.FromArgb(58, 67, 84);
+        public static readonly Color BorderStrong = Color.FromArgb(78, 89, 109);
+        public static readonly Color Text = Color.FromArgb(242, 245, 250);
+        public static readonly Color TextSecondary = Color.FromArgb(190, 199, 213);
+        public static readonly Color TextMuted = Color.FromArgb(139, 150, 169);
+        public static readonly Color Accent = Color.FromArgb(111, 157, 232);
+        public static readonly Color AccentPressed = Color.FromArgb(92, 139, 218);
+        public static readonly Color AccentSurface = Color.FromArgb(24, 43, 70);
+        public static readonly Color OnAccent = Color.FromArgb(10, 18, 31);
+        public static readonly Color Success = Color.FromArgb(83, 182, 138);
+        public static readonly Color Warning = Color.FromArgb(224, 164, 79);
+        public static readonly Color Danger = Color.FromArgb(218, 91, 106);
+
+        public const int PanelRadius = 12;
+        public const int KeyRadius = 6;
+
+        public static GraphicsPath CreateRoundedPath(RectangleF rect, float radius)
+        {
+            GraphicsPath path = new GraphicsPath();
+            float diameter = Math.Min(radius * 2f, Math.Min(rect.Width, rect.Height));
+            if (diameter <= 1f)
+            {
+                path.AddRectangle(rect);
+                return path;
+            }
+
+            path.AddArc(rect.X, rect.Y, diameter, diameter, 180, 90);
+            path.AddArc(rect.Right - diameter, rect.Y, diameter, diameter, 270, 90);
+            path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0, 90);
+            path.AddArc(rect.X, rect.Bottom - diameter, diameter, diameter, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+
+        public static void DrawPanel(Graphics graphics, Rectangle bounds, Brush surfaceBrush, Pen borderPen)
+        {
+            if (bounds.Width <= 1 || bounds.Height <= 1)
+            {
+                return;
+            }
+
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            RectangleF frame = new RectangleF(bounds.X + 0.5f, bounds.Y + 0.5f, bounds.Width - 1.5f, bounds.Height - 1.5f);
+            using GraphicsPath path = CreateRoundedPath(frame, PanelRadius);
+            graphics.FillPath(surfaceBrush, path);
+            graphics.DrawPath(borderPen, path);
+        }
+    }
+
     public class KeyboardMonitorForm : Form
     {
         // 三種不同的鍵盤佈局定義
@@ -74,16 +129,18 @@ namespace KeyboardDiagnostic
 
         // --- 快取供高頻重繪使用的固定 GDI 資源（表單生命週期內重複使用，於 Dispose 釋放）---
         private readonly Font _indicatorNameFont = new Font("Segoe UI", 8.5f, FontStyle.Regular);
-        private readonly Font _indicatorValueFont = new Font("Segoe UI", 13f, FontStyle.Bold);
-        private readonly Pen _indicatorBorderPen = new Pen(Color.FromArgb(40, 40, 48), 1f);
-        private readonly Pen _panelBorderPen = new Pen(Color.FromArgb(45, 45, 52), 1f);
-        private readonly SolidBrush _statusNormalBrush = new SolidBrush(Color.FromArgb(0x10, 0xB9, 0x81));
-        private readonly SolidBrush _statusStuckBrush = new SolidBrush(Color.FromArgb(0xEF, 0x44, 0x44));
-        private readonly SolidBrush _logDefaultBrush = new SolidBrush(Color.FromArgb(180, 180, 190));
-        private readonly SolidBrush _logPressBrush = new SolidBrush(Color.FromArgb(0, 242, 254));
-        private readonly SolidBrush _logReleaseBrush = new SolidBrush(Color.FromArgb(16, 185, 129));
-        private readonly SolidBrush _logStuckBrush = new SolidBrush(Color.FromArgb(239, 68, 68));
-        private readonly SolidBrush _logMouseBrush = new SolidBrush(Color.FromArgb(245, 158, 11));
+        private readonly Font _indicatorValueFont = new Font("Segoe UI", 14f, FontStyle.Bold);
+        private readonly Pen _indicatorBorderPen = new Pen(DiagnosticTheme.Border, 1f);
+        private readonly Pen _panelBorderPen = new Pen(DiagnosticTheme.Border, 1f);
+        private readonly SolidBrush _panelSurfaceBrush = new SolidBrush(DiagnosticTheme.Surface);
+        private readonly SolidBrush _indicatorSurfaceBrush = new SolidBrush(DiagnosticTheme.Input);
+        private readonly SolidBrush _statusNormalBrush = new SolidBrush(DiagnosticTheme.Success);
+        private readonly SolidBrush _statusStuckBrush = new SolidBrush(DiagnosticTheme.Danger);
+        private readonly SolidBrush _logDefaultBrush = new SolidBrush(DiagnosticTheme.TextSecondary);
+        private readonly SolidBrush _logPressBrush = new SolidBrush(DiagnosticTheme.Accent);
+        private readonly SolidBrush _logReleaseBrush = new SolidBrush(DiagnosticTheme.Success);
+        private readonly SolidBrush _logStuckBrush = new SolidBrush(DiagnosticTheme.Danger);
+        private readonly SolidBrush _logMouseBrush = new SolidBrush(DiagnosticTheme.Warning);
 
         [STAThread]
         public static void Main()
@@ -105,31 +162,48 @@ namespace KeyboardDiagnostic
         private void InitializeComponent()
         {
             this.DoubleBuffered = true;
-            // 設定視窗基本樣式
+            this.AutoScaleMode = AutoScaleMode.Dpi;
             this.Text = "Windows 11 鍵盤與滑鼠診斷工具";
-            this.Width = 1450;
-            this.Height = 810;
+            this.ClientSize = new Size(1450, 820);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
-            this.BackColor = Color.FromArgb(18, 18, 22);
+            this.BackColor = DiagnosticTheme.Canvas;
+            this.Font = new Font("Segoe UI", 9f, FontStyle.Regular);
+
+            TableLayoutPanel rootLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = DiagnosticTheme.Canvas,
+                Padding = new Padding(24, 12, 24, 12),
+                Margin = Padding.Empty,
+                RowCount = 4,
+                ColumnCount = 1
+            };
+            rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 62f));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 54f));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 46f));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32f));
+            this.Controls.Add(rootLayout);
 
             // 1. 頂部控制面板
             Panel topPanel = new Panel
             {
-                Dock = DockStyle.Top,
-                Height = 65,
-                BackColor = Color.FromArgb(18, 18, 22),
-                Padding = new Padding(25, 10, 25, 10)
+                Dock = DockStyle.Fill,
+                BackColor = DiagnosticTheme.Canvas,
+                Padding = new Padding(4, 4, 0, 8),
+                Margin = Padding.Empty
             };
 
             Label titleLabel = new Label
             {
                 Text = "KEYBOARD & MOUSE DIAGNOSTIC",
-                Font = new Font("Segoe UI", 16, FontStyle.Bold),
-                ForeColor = Color.FromArgb(245, 245, 250),
+                Font = new Font("Segoe UI", 15.5f, FontStyle.Bold),
+                ForeColor = DiagnosticTheme.Text,
                 AutoSize = true,
-                Location = new Point(25, 18)
+                Location = new Point(4, 14),
+                AccessibleRole = AccessibleRole.StaticText
             };
             topPanel.Controls.Add(titleLabel);
 
@@ -141,21 +215,23 @@ namespace KeyboardDiagnostic
                 AutoSize = true,
                 BackColor = Color.Transparent,
                 Dock = DockStyle.Right,
-                Padding = new Padding(0, 15, 0, 0)
+                Padding = new Padding(0, 11, 0, 0),
+                Margin = Padding.Empty
             };
 
             _statusLight = new Label
             {
                 Width = 14,
                 Height = 14,
-                BackColor = _statusNormalBrush.Color, // 精緻綠
+                BackColor = Color.Transparent,
+                Tag = false,
                 Margin = new Padding(5, 6, 5, 0)
             };
             // 繪製圓形指示燈（依目前狀態選用快取好的固定筆刷，避免每次重繪配置新物件）
             _statusLight.Paint += (s, e) =>
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                SolidBrush b = _statusLight.BackColor == _statusStuckBrush.Color ? _statusStuckBrush : _statusNormalBrush;
+                SolidBrush b = _statusLight.Tag is true ? _statusStuckBrush : _statusNormalBrush;
                 e.Graphics.FillEllipse(b, 0, 0, _statusLight.Width - 1, _statusLight.Height - 1);
             };
             statusPanel.Controls.Add(_statusLight);
@@ -166,17 +242,19 @@ namespace KeyboardDiagnostic
                 Font = new Font("Segoe UI", 10, FontStyle.Bold),
                 ForeColor = _statusNormalBrush.Color,
                 AutoSize = true,
-                Margin = new Padding(5, 4, 15, 0)
+                Margin = new Padding(5, 4, 18, 0),
+                AccessibleName = "診斷狀態"
             };
             statusPanel.Controls.Add(_statusText);
 
             _countLabel = new Label
             {
                 Text = "當前按下鍵數: 0",
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                ForeColor = Color.FromArgb(245, 245, 250),
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                ForeColor = DiagnosticTheme.TextSecondary,
                 AutoSize = true,
-                Margin = new Padding(5, 4, 15, 0)
+                Margin = new Padding(5, 4, 18, 0),
+                AccessibleName = "目前按下鍵數"
             };
             statusPanel.Controls.Add(_countLabel);
 
@@ -185,14 +263,16 @@ namespace KeyboardDiagnostic
             {
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-                BackColor = Color.FromArgb(38, 38, 44),
-                ForeColor = Color.White,
+                BackColor = DiagnosticTheme.SurfaceRaised,
+                ForeColor = DiagnosticTheme.Text,
                 FlatStyle = FlatStyle.Flat,
-                Size = new Size(160, 28),
-                Margin = new Padding(5, 1, 15, 0),
+                Size = new Size(166, 30),
+                Margin = new Padding(5, 0, 14, 0),
                 Cursor = Cursors.Hand,
-                TabStop = false,
-                AccessibleName = "鍵盤配置"
+                TabStop = true,
+                TabIndex = 0,
+                AccessibleName = "鍵盤配置",
+                AccessibleDescription = "選擇全尺寸、TKL 或緊湊型鍵盤配置"
             };
             _keyboardTypeSelector.Items.AddRange(new object[] { "100% 全尺寸鍵盤", "80% TKL 鍵盤", "60% 緊湊型鍵盤" });
             _keyboardTypeSelector.SelectedIndex = 0;
@@ -204,58 +284,64 @@ namespace KeyboardDiagnostic
             {
                 Text = "清除重設",
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-                BackColor = Color.FromArgb(59, 130, 246),
-                ForeColor = Color.White,
+                BackColor = DiagnosticTheme.Accent,
+                ForeColor = DiagnosticTheme.OnAccent,
                 FlatStyle = FlatStyle.Flat,
-                Size = new Size(85, 28),
+                Size = new Size(92, 30),
                 Margin = new Padding(5, 0, 5, 0),
                 Cursor = Cursors.Hand,
-                TabStop = false
+                TabStop = true,
+                TabIndex = 1,
+                AccessibleName = "清除重設",
+                AccessibleDescription = "清除所有鍵盤、滑鼠、打字與統計狀態"
             };
-            resetBtn.FlatAppearance.BorderSize = 0;
-            resetBtn.FlatAppearance.MouseOverBackColor = Color.FromArgb(37, 99, 235);
+            resetBtn.FlatAppearance.BorderSize = 1;
+            resetBtn.FlatAppearance.BorderColor = DiagnosticTheme.Accent;
+            resetBtn.FlatAppearance.MouseOverBackColor = DiagnosticTheme.AccentPressed;
+            resetBtn.FlatAppearance.MouseDownBackColor = DiagnosticTheme.AccentPressed;
             resetBtn.Click += (s, e) => ResetAll();
             statusPanel.Controls.Add(resetBtn);
 
             topPanel.Controls.Add(statusPanel);
-            this.Controls.Add(topPanel);
+            rootLayout.Controls.Add(topPanel, 0, 0);
 
             // 2. 鍵盤主體卡片面板容器
             _keyboardContainer = new TableLayoutPanel
             {
-                BackColor = Color.FromArgb(24, 24, 28),
-                Padding = new Padding(15),
-                Location = new Point(25, 75),
-                Size = new Size(1385, 380),
+                Dock = DockStyle.Fill,
+                BackColor = DiagnosticTheme.Canvas,
+                Padding = new Padding(18),
+                Margin = new Padding(0, 6, 0, 8),
                 RowCount = 1,
                 ColumnCount = 3
             };
-            // 繪製容器邊框（使用快取的固定 Pen）
             _keyboardContainer.Paint += (s, e) =>
             {
-                e.Graphics.DrawRectangle(_panelBorderPen, 0, 0, _keyboardContainer.Width - 1, _keyboardContainer.Height - 1);
+                DiagnosticTheme.DrawPanel(e.Graphics, _keyboardContainer.ClientRectangle, _panelSurfaceBrush, _panelBorderPen);
             };
-            this.Controls.Add(_keyboardContainer);
+            rootLayout.Controls.Add(_keyboardContainer, 0, 1);
 
             // 3. 下方三大特色版面容器
             _bottomPanelContainer = new TableLayoutPanel
             {
-                Location = new Point(25, 470),
-                Size = new Size(1385, 235),
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 8, 0, 6),
                 RowCount = 1,
                 ColumnCount = 3,
                 BackColor = Color.Transparent
             };
-            _bottomPanelContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 22f)); // 滑鼠診斷
-            _bottomPanelContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48f)); // 打字測試
-            _bottomPanelContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30f)); // 即時日誌
-            this.Controls.Add(_bottomPanelContainer);
+            _bottomPanelContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 21f)); // 滑鼠診斷
+            _bottomPanelContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 51f)); // 打字測試
+            _bottomPanelContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28f)); // 即時日誌
+            rootLayout.Controls.Add(_bottomPanelContainer, 0, 2);
 
             // --- 3.1 滑鼠診斷區 ---
             _mouseTester = new MouseTesterControl
             {
                 Dock = DockStyle.Fill,
-                Margin = new Padding(0, 0, 10, 0)
+                Margin = new Padding(0, 0, 8, 0),
+                AccessibleName = "滑鼠診斷區",
+                AccessibleDescription = "顯示左右鍵、中鍵、側鍵與滾輪輸入狀態"
             };
             _bottomPanelContainer.Controls.Add(_mouseTester, 0, 0);
 
@@ -263,33 +349,38 @@ namespace KeyboardDiagnostic
             Panel typePanel = new Panel
             {
                 Dock = DockStyle.Fill,
-                BackColor = Color.FromArgb(24, 24, 28),
-                Padding = new Padding(15),
-                Margin = new Padding(5, 0, 5, 0)
+                BackColor = DiagnosticTheme.Canvas,
+                Padding = new Padding(18),
+                Margin = new Padding(4, 0, 4, 0)
             };
             typePanel.Paint += (s, e) =>
-                e.Graphics.DrawRectangle(_panelBorderPen, 0, 0, typePanel.Width - 1, typePanel.Height - 1);
+                DiagnosticTheme.DrawPanel(e.Graphics, typePanel.ClientRectangle, _panelSurfaceBrush, _panelBorderPen);
 
             Label typeTitle = new Label
             {
                 Text = "打字與延遲測試 (TYPING & LATENCY TEST)",
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(200, 200, 210),
-                Location = new Point(15, 10),
-                AutoSize = true
+                ForeColor = DiagnosticTheme.TextSecondary,
+                Location = new Point(18, 14),
+                AutoSize = true,
+                AccessibleRole = AccessibleRole.StaticText
             };
             typePanel.Controls.Add(typeTitle);
 
             _typeTextBox = new TextBox
             {
                 Multiline = true,
-                BackColor = Color.FromArgb(18, 18, 22),
-                ForeColor = Color.FromArgb(245, 245, 250),
+                BackColor = DiagnosticTheme.Input,
+                ForeColor = DiagnosticTheme.Text,
                 BorderStyle = BorderStyle.FixedSingle,
                 Font = new Font("Consolas", 10.5f),
-                Location = new Point(15, 35),
-                Size = new Size(625, 95),
-                TabStop = false
+                Location = new Point(18, 42),
+                Size = new Size(650, 96),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left,
+                TabStop = true,
+                TabIndex = 2,
+                AccessibleName = "打字測試輸入區",
+                AccessibleDescription = "在此輸入以計算 WPM，按 Escape 清空"
             };
             _typeTextBox.TextChanged += TypeTextBox_TextChanged;
             _typeTextBox.KeyDown += (s, e) =>
@@ -305,74 +396,93 @@ namespace KeyboardDiagnostic
             // 速度指標容器
             FlowLayoutPanel speedIndicators = new FlowLayoutPanel
             {
-                Location = new Point(15, 140),
-                Size = new Size(625, 80),
+                Location = new Point(18, 150),
+                Size = new Size(650, 80),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left,
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
                 BackColor = Color.Transparent
             };
 
-            _wpmLabel = CreateIndicatorLabel("WPM", () => GetWPMString(), Color.FromArgb(0, 242, 254));
-            _kpsLabel = CreateIndicatorLabel("當前 KPS", () => GetKpsString(false), Color.FromArgb(16, 185, 129));
-            _maxKpsLabel = CreateIndicatorLabel("最高 KPS", () => GetKpsString(true), Color.FromArgb(245, 158, 11));
-            _latencyLabel = CreateIndicatorLabel("按鍵持續時間", () => GetLastLatencyString(), Color.FromArgb(167, 139, 250));
+            _wpmLabel = CreateIndicatorLabel("WPM", () => GetWPMString());
+            _kpsLabel = CreateIndicatorLabel("當前 KPS", () => GetKpsString(false));
+            _maxKpsLabel = CreateIndicatorLabel("最高 KPS", () => GetKpsString(true));
+            _latencyLabel = CreateIndicatorLabel("按鍵持續時間", () => GetLastLatencyString());
 
             speedIndicators.Controls.Add(_wpmLabel);
             speedIndicators.Controls.Add(_kpsLabel);
             speedIndicators.Controls.Add(_maxKpsLabel);
             speedIndicators.Controls.Add(_latencyLabel);
             typePanel.Controls.Add(speedIndicators);
+            typePanel.Resize += (s, e) =>
+            {
+                int contentWidth = Math.Max(200, typePanel.ClientSize.Width - 36);
+                _typeTextBox.Width = contentWidth;
+                speedIndicators.Width = contentWidth;
+            };
             _bottomPanelContainer.Controls.Add(typePanel, 1, 0);
 
             // --- 3.3 即時日誌面板 ---
             Panel logPanel = new Panel
             {
                 Dock = DockStyle.Fill,
-                BackColor = Color.FromArgb(24, 24, 28),
-                Padding = new Padding(15),
-                Margin = new Padding(10, 0, 0, 0)
+                BackColor = DiagnosticTheme.Canvas,
+                Padding = new Padding(18),
+                Margin = new Padding(8, 0, 0, 0)
             };
             logPanel.Paint += (s, e) =>
-                e.Graphics.DrawRectangle(_panelBorderPen, 0, 0, logPanel.Width - 1, logPanel.Height - 1);
+                DiagnosticTheme.DrawPanel(e.Graphics, logPanel.ClientRectangle, _panelSurfaceBrush, _panelBorderPen);
 
             Label logTitle = new Label
             {
                 Text = "實時按鍵日誌 (LIVE EVENT LOG)",
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(200, 200, 210),
-                Location = new Point(15, 10),
-                AutoSize = true
+                ForeColor = DiagnosticTheme.TextSecondary,
+                Location = new Point(18, 14),
+                AutoSize = true,
+                AccessibleRole = AccessibleRole.StaticText
             };
             logPanel.Controls.Add(logTitle);
 
             _logListBox = new ListBox
             {
-                BackColor = Color.FromArgb(18, 18, 22),
-                ForeColor = Color.FromArgb(220, 220, 230),
+                BackColor = DiagnosticTheme.Input,
+                ForeColor = DiagnosticTheme.TextSecondary,
                 BorderStyle = BorderStyle.FixedSingle,
                 Font = new Font("Consolas", 9f),
                 DrawMode = DrawMode.OwnerDrawFixed,
                 ItemHeight = 20,
-                Location = new Point(15, 35),
-                Size = new Size(385, 180),
-                TabStop = false
+                Location = new Point(18, 42),
+                Size = new Size(350, 210),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left,
+                TabStop = true,
+                TabIndex = 3,
+                AccessibleName = "即時按鍵日誌",
+                AccessibleDescription = "顯示最近一百筆鍵盤與滑鼠輸入事件"
             };
             _logListBox.DrawItem += LogListBox_DrawItem;
             logPanel.Controls.Add(_logListBox);
+            logPanel.Resize += (s, e) =>
+            {
+                _logListBox.Size = new Size(
+                    Math.Max(100, logPanel.ClientSize.Width - 36),
+                    Math.Max(80, logPanel.ClientSize.Height - 60));
+            };
             _bottomPanelContainer.Controls.Add(logPanel, 2, 0);
 
             // 4. 底部提示資訊
             _bottomTips = new Label
             {
-                Text = "亮藍色代表目前按下 | 暗青色代表已測試過 | 紅色代表卡鍵 (>2秒) | 支援滑鼠點擊與滾輪檢測 | 按 ESC 可清空打字測試區",
+                Text = "冷藍色代表目前按下 | 深藍色代表已測試過 | 紅色代表卡鍵 (>2秒) | 支援滑鼠點擊與滾輪檢測 | 按 ESC 可清空打字測試區",
                 Font = new Font("Segoe UI", 9.5f),
-                ForeColor = Color.FromArgb(130, 130, 140),
+                ForeColor = DiagnosticTheme.TextMuted,
                 BackColor = Color.Transparent,
                 TextAlign = ContentAlignment.MiddleCenter,
-                Location = new Point(25, 712),
-                Size = new Size(1385, 25)
+                Dock = DockStyle.Fill,
+                Margin = Padding.Empty,
+                AccessibleRole = AccessibleRole.StaticText
             };
-            this.Controls.Add(_bottomTips);
+            rootLayout.Controls.Add(_bottomTips, 0, 3);
 
             // 5. 初始化與載入預設鍵盤
             UpdateKeyboardLayout("100%");
@@ -391,27 +501,26 @@ namespace KeyboardDiagnostic
 
         }
 
-        private Label CreateIndicatorLabel(string name, Func<string> getValue, Color valueColor)
+        private Label CreateIndicatorLabel(string name, Func<string> getValue)
         {
             Label lbl = new Label
             {
-                Size = new Size(150, 70),
-                BackColor = Color.FromArgb(18, 18, 22),
-                Margin = new Padding(0, 0, 5, 0),
-                Padding = new Padding(8)
+                Size = new Size(158, 70),
+                BackColor = Color.Transparent,
+                Margin = new Padding(0, 0, 6, 0),
+                Padding = new Padding(10),
+                AccessibleName = name
             };
             // 此面板每秒／每次按鍵都會重繪，字型與邊框 Pen 使用表單快取的固定資源
             lbl.Paint += (s, e) =>
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
-                // 畫邊框
-                e.Graphics.DrawRectangle(_indicatorBorderPen, 0, 0, lbl.Width - 1, lbl.Height - 1);
-                // 畫指標名稱
-                TextRenderer.DrawText(e.Graphics, name, _indicatorNameFont, new Rectangle(8, 6, lbl.Width - 16, 20), Color.FromArgb(130, 130, 140));
-                // 畫動態讀取的數值
+                DiagnosticTheme.DrawPanel(e.Graphics, lbl.ClientRectangle, _indicatorSurfaceBrush, _indicatorBorderPen);
+                TextRenderer.DrawText(e.Graphics, name, _indicatorNameFont, new Rectangle(11, 7, lbl.Width - 22, 20), DiagnosticTheme.TextMuted);
                 string valueText = getValue();
-                TextRenderer.DrawText(e.Graphics, valueText, _indicatorValueFont, new Rectangle(8, 26, lbl.Width - 16, 35), valueColor, TextFormatFlags.VerticalCenter);
+                lbl.AccessibleDescription = $"{name}: {valueText}";
+                TextRenderer.DrawText(e.Graphics, valueText, _indicatorValueFont, new Rectangle(11, 27, lbl.Width - 22, 34), DiagnosticTheme.Accent, TextFormatFlags.VerticalCenter);
             };
             return lbl;
         }
@@ -470,6 +579,8 @@ namespace KeyboardDiagnostic
                 _indicatorValueFont?.Dispose();
                 _indicatorBorderPen?.Dispose();
                 _panelBorderPen?.Dispose();
+                _panelSurfaceBrush?.Dispose();
+                _indicatorSurfaceBrush?.Dispose();
                 _statusNormalBrush?.Dispose();
                 _statusStuckBrush?.Dispose();
                 _logDefaultBrush?.Dispose();
@@ -608,13 +719,13 @@ namespace KeyboardDiagnostic
 
             if (stuckKeys.Count > 0)
             {
-                _statusLight.BackColor = _statusStuckBrush.Color;
+                _statusLight.Tag = true;
                 _statusText.Text = $"警告：偵測到卡鍵！({string.Join(", ", stuckKeys)})";
                 _statusText.ForeColor = _statusStuckBrush.Color;
             }
             else
             {
-                _statusLight.BackColor = _statusNormalBrush.Color;
+                _statusLight.Tag = false;
                 _statusText.ForeColor = _statusNormalBrush.Color;
                 _statusText.Text = pressedCount > 0
                     ? $"偵測中 - 同時按下 {pressedCount} 個鍵"
@@ -712,10 +823,6 @@ namespace KeyboardDiagnostic
         private void UpdateKeyboardLayout(string type)
         {
             ResetAll();
-
-            _keyboardContainer.Width = this.ClientSize.Width - 50;
-            _bottomPanelContainer.Width = this.ClientSize.Width - 50;
-            _bottomTips.Width = this.ClientSize.Width - 50;
 
             _keyboardContainer.ColumnStyles.Clear();
             _keyboardContainer.Controls.Clear();
@@ -991,10 +1098,26 @@ namespace KeyboardDiagnostic
         // 邊框顏色只有四種固定狀態；以應用程式生命週期的靜態 Pen 陣列共用，避免每次重繪配置/釋放
         private static readonly Pen[] BorderPens =
         {
-            new Pen(Color.FromArgb(52, 52, 60), 1.5f),   // Untested
-            new Pen(Color.FromArgb(0, 190, 255), 1.5f),  // Pressed
-            new Pen(Color.FromArgb(14, 116, 144), 1.5f), // Tested
-            new Pen(Color.FromArgb(220, 38, 38), 1.5f),  // Stuck
+            new Pen(DiagnosticTheme.BorderStrong, 1.2f), // Untested
+            new Pen(DiagnosticTheme.Accent, 1.8f),       // Pressed
+            new Pen(DiagnosticTheme.Accent, 1.2f),       // Tested
+            new Pen(DiagnosticTheme.Danger, 1.8f),       // Stuck
+        };
+
+        private static readonly SolidBrush[] BackgroundBrushes =
+        {
+            new SolidBrush(DiagnosticTheme.SurfaceRaised),
+            new SolidBrush(DiagnosticTheme.Accent),
+            new SolidBrush(DiagnosticTheme.AccentSurface),
+            new SolidBrush(DiagnosticTheme.Danger),
+        };
+
+        private static readonly Color[] TextColors =
+        {
+            DiagnosticTheme.TextSecondary,
+            DiagnosticTheme.OnAccent,
+            DiagnosticTheme.Accent,
+            DiagnosticTheme.OnAccent,
         };
 
         private static Pen GetBorderPen(KeyState state)
@@ -1015,13 +1138,25 @@ namespace KeyboardDiagnostic
         public KeyState State
         {
             get => _state;
-            set { _state = value; Invalidate(); }
+            set
+            {
+                _state = value;
+                AccessibleDescription = value switch
+                {
+                    KeyState.Pressed => $"{_keyText} 目前按下",
+                    KeyState.Tested => $"{_keyText} 已測試",
+                    KeyState.Stuck => $"{_keyText} 可能卡鍵",
+                    _ => $"{_keyText} 尚未測試",
+                };
+                Invalidate();
+            }
         }
 
         public KeyControl()
         {
             this.DoubleBuffered = true;
-            this.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            this.Font = new Font("Segoe UI", 9.25f, FontStyle.Bold);
+            this.TabStop = false;
         }
 
         protected override void Dispose(bool disposing)
@@ -1042,46 +1177,10 @@ namespace KeyboardDiagnostic
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
             RectangleF rect = new RectangleF(1, 1, this.Width - 3, this.Height - 3);
-            int cornerRadius = 6;
-
-            Color bgStart, bgEnd, textColor;
-
-            switch (_state)
+            int stateIndex = Math.Clamp((int)_state, 0, BackgroundBrushes.Length - 1);
+            using (GraphicsPath path = DiagnosticTheme.CreateRoundedPath(rect, DiagnosticTheme.KeyRadius))
             {
-                case KeyState.Untested:
-                    bgStart = Color.FromArgb(32, 32, 38);
-                    bgEnd = Color.FromArgb(24, 24, 28);
-                    textColor = Color.FromArgb(170, 170, 180);
-                    break;
-                case KeyState.Pressed:
-                    bgStart = Color.FromArgb(0, 242, 254);
-                    bgEnd = Color.FromArgb(79, 172, 254);
-                    textColor = Color.White;
-                    break;
-                case KeyState.Tested:
-                    bgStart = Color.FromArgb(16, 45, 50);
-                    bgEnd = Color.FromArgb(10, 30, 35);
-                    textColor = Color.FromArgb(34, 211, 238);
-                    break;
-                case KeyState.Stuck:
-                    bgStart = Color.FromArgb(239, 68, 68);
-                    bgEnd = Color.FromArgb(185, 28, 28);
-                    textColor = Color.White;
-                    break;
-                default:
-                    bgStart = Color.FromArgb(32, 32, 38);
-                    bgEnd = Color.FromArgb(24, 24, 28);
-                    textColor = Color.FromArgb(170, 170, 180);
-                    break;
-            }
-
-            // 背景漸層取決於控制項當下尺寸（rect），無法安全跨重繪快取；邊框 Pen 只有四種固定狀態值，改用共用靜態陣列。
-            using (GraphicsPath path = GetRoundPath(rect, cornerRadius))
-            {
-                using (LinearGradientBrush brush = new LinearGradientBrush(rect, bgStart, bgEnd, 45f))
-                {
-                    g.FillPath(brush, path);
-                }
+                g.FillPath(BackgroundBrushes[stateIndex], path);
                 g.DrawPath(GetBorderPen(_state), path);
             }
 
@@ -1120,24 +1219,7 @@ namespace KeyboardDiagnostic
             if (display == "/") display = "/  ?";
 
             TextFormatFlags flags = TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak;
-            TextRenderer.DrawText(g, display, this.Font, Rectangle.Round(rect), textColor, flags);
-        }
-
-        private static GraphicsPath GetRoundPath(RectangleF rect, float radius)
-        {
-            GraphicsPath path = new GraphicsPath();
-            float r = radius;
-            if (rect.Width < r || rect.Height < r)
-            {
-                path.AddRectangle(rect);
-                return path;
-            }
-            path.AddArc(rect.X, rect.Y, r, r, 180, 90);
-            path.AddArc(rect.Right - r, rect.Y, r, r, 270, 90);
-            path.AddArc(rect.Right - r, rect.Bottom - r, r, r, 0, 90);
-            path.AddArc(rect.X, rect.Bottom - r, r, r, 90, 90);
-            path.CloseFigure();
-            return path;
+            TextRenderer.DrawText(g, display, this.Font, Rectangle.Round(rect), TextColors[stateIndex], flags);
         }
     }
 
@@ -1157,18 +1239,21 @@ namespace KeyboardDiagnostic
         // --- 快取供高頻重繪（每次滑鼠按鍵/滾輪事件）使用的固定 GDI 資源，於 Dispose 釋放 ---
         private readonly Font _titleFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
         private readonly Font _smallBoldFont = new Font("Segoe UI", 9f, FontStyle.Bold);
-        private readonly SolidBrush _backgroundBrush = new SolidBrush(Color.FromArgb(24, 24, 28));
-        private readonly SolidBrush _mouseBodyFillBrush = new SolidBrush(Color.FromArgb(18, 18, 22));
-        private readonly SolidBrush _keyNormalBrush = new SolidBrush(Color.FromArgb(32, 32, 38));
-        private readonly Pen _outerBorderPen = new Pen(Color.FromArgb(45, 45, 52), 1f);
-        private readonly Pen _bodyBorderPen = new Pen(Color.FromArgb(52, 52, 60), 2f);
-        private readonly Pen _partBorderPen = new Pen(Color.FromArgb(52, 52, 60), 1.5f);
-        private readonly Pen _keyBorderPen = new Pen(Color.FromArgb(52, 52, 60), 1.2f);
+        private readonly SolidBrush _backgroundBrush = new SolidBrush(DiagnosticTheme.Surface);
+        private readonly SolidBrush _canvasBrush = new SolidBrush(DiagnosticTheme.Canvas);
+        private readonly SolidBrush _mouseBodyFillBrush = new SolidBrush(DiagnosticTheme.Input);
+        private readonly SolidBrush _keyNormalBrush = new SolidBrush(DiagnosticTheme.SurfaceRaised);
+        private readonly Pen _outerBorderPen = new Pen(DiagnosticTheme.Border, 1f);
+        private readonly Pen _bodyBorderPen = new Pen(DiagnosticTheme.BorderStrong, 2f);
+        private readonly Pen _partBorderPen = new Pen(DiagnosticTheme.BorderStrong, 1.5f);
+        private readonly Pen _keyBorderPen = new Pen(DiagnosticTheme.BorderStrong, 1.2f);
 
         public MouseTesterControl()
         {
             this.DoubleBuffered = true;
             this.Size = new Size(200, 210);
+            this.BackColor = DiagnosticTheme.Canvas;
+            this.TabStop = false;
 
             _scrollResetTimer = new Timer();
             _scrollResetTimer.Interval = 800;
@@ -1208,6 +1293,7 @@ namespace KeyboardDiagnostic
                 _titleFont?.Dispose();
                 _smallBoldFont?.Dispose();
                 _backgroundBrush?.Dispose();
+                _canvasBrush?.Dispose();
                 _mouseBodyFillBrush?.Dispose();
                 _keyNormalBrush?.Dispose();
                 _outerBorderPen?.Dispose();
@@ -1226,18 +1312,22 @@ namespace KeyboardDiagnostic
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-            g.FillRectangle(_backgroundBrush, this.ClientRectangle);
-            g.DrawRectangle(_outerBorderPen, 0, 0, this.Width - 1, this.Height - 1);
-            TextRenderer.DrawText(g, "滑鼠診斷區 (MOUSE DIAGNOSTICS)", _titleFont, new Rectangle(0, 10, this.Width, 25), Color.FromArgb(200, 200, 210), TextFormatFlags.HorizontalCenter);
+            g.FillRectangle(_canvasBrush, this.ClientRectangle);
+            DiagnosticTheme.DrawPanel(g, this.ClientRectangle, _backgroundBrush, _outerBorderPen);
+            TextRenderer.DrawText(
+                g,
+                "滑鼠診斷區 (MOUSE DIAGNOSTICS)",
+                _titleFont,
+                new Rectangle(18, 14, Math.Max(0, this.Width - 36), 25),
+                DiagnosticTheme.TextSecondary,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
 
             int mWidth = 90;
             int mHeight = 135;
             int mX = (this.Width - mWidth) / 2 + 10;
-            int mY = 38;
+            int mY = 48;
 
-            Color normalColor = Color.FromArgb(32, 32, 38);
-            Color activeColor = Color.FromArgb(0, 242, 254);
-            Color activeEndColor = Color.FromArgb(79, 172, 254);
+            Color activeColor = DiagnosticTheme.Accent;
 
             int xKeyWidth = 8;
             int xKeyHeight = 22;
@@ -1245,8 +1335,8 @@ namespace KeyboardDiagnostic
             int x1Y = mY + 65;
             int x2Y = mY + 38;
 
-            DrawMouseKey(g, new Rectangle(xKeyX, x1Y, xKeyWidth, xKeyHeight), X1Pressed, activeColor, activeEndColor);
-            DrawMouseKey(g, new Rectangle(xKeyX, x2Y, xKeyWidth, xKeyHeight), X2Pressed, activeColor, activeEndColor);
+            DrawMouseKey(g, new Rectangle(xKeyX, x1Y, xKeyWidth, xKeyHeight), X1Pressed, activeColor);
+            DrawMouseKey(g, new Rectangle(xKeyX, x2Y, xKeyWidth, xKeyHeight), X2Pressed, activeColor);
 
             Rectangle mRect = new Rectangle(mX, mY, mWidth, mHeight);
             using (GraphicsPath mPath = GetRoundPath(mRect, 30))
@@ -1258,14 +1348,14 @@ namespace KeyboardDiagnostic
             Rectangle lRect = new Rectangle(mX, mY, mWidth / 2, 50);
             using (GraphicsPath lPath = GetTopLeftRoundPath(lRect, 30))
             {
-                FillMousePart(g, lPath, lRect, LPressed, normalColor, activeColor, activeEndColor);
+                FillMousePart(g, lPath, LPressed, activeColor);
                 g.DrawPath(_partBorderPen, lPath);
             }
 
             Rectangle rRect = new Rectangle(mX + mWidth / 2, mY, mWidth / 2, 50);
             using (GraphicsPath rPath = GetTopRightRoundPath(rRect, 30))
             {
-                FillMousePart(g, rPath, rRect, RPressed, normalColor, activeColor, activeEndColor);
+                FillMousePart(g, rPath, RPressed, activeColor);
                 g.DrawPath(_partBorderPen, rPath);
             }
 
@@ -1276,28 +1366,26 @@ namespace KeyboardDiagnostic
             Rectangle wRect = new Rectangle(wX, wY, wWidth, wHeight);
             using (GraphicsPath wPath = GetRoundPath(wRect, 6))
             {
-                FillMousePart(g, wPath, wRect, MPressed, normalColor, Color.FromArgb(239, 68, 68), Color.FromArgb(185, 28, 28));
+                FillMousePart(g, wPath, MPressed, activeColor);
                 g.DrawPath(_partBorderPen, wPath);
             }
 
             if (!string.IsNullOrEmpty(_scrollDir))
             {
-                TextRenderer.DrawText(g, _scrollDir, _smallBoldFont, new Rectangle(wX - 22, wY + 2, 20, 20), Color.FromArgb(0, 242, 254), TextFormatFlags.HorizontalCenter);
+                TextRenderer.DrawText(g, _scrollDir, _smallBoldFont, new Rectangle(wX - 22, wY + 2, 20, 20), DiagnosticTheme.Accent, TextFormatFlags.HorizontalCenter);
             }
 
-            TextRenderer.DrawText(g, _scrollText, _smallBoldFont, new Rectangle(0, this.Height - 30, this.Width, 20), Color.FromArgb(180, 180, 190), TextFormatFlags.HorizontalCenter);
+            TextRenderer.DrawText(g, _scrollText, _smallBoldFont, new Rectangle(0, this.Height - 32, this.Width, 20), DiagnosticTheme.TextSecondary, TextFormatFlags.HorizontalCenter);
         }
 
-        private void DrawMouseKey(Graphics g, Rectangle rect, bool pressed, Color actColor, Color actEndColor)
+        private void DrawMouseKey(Graphics g, Rectangle rect, bool pressed, Color activeColor)
         {
             using (GraphicsPath path = GetRoundPath(rect, 4))
             {
                 if (pressed)
                 {
-                    using (LinearGradientBrush brush = new LinearGradientBrush(rect, actColor, actEndColor, 45f))
-                    {
-                        g.FillPath(brush, path);
-                    }
+                    using SolidBrush brush = new SolidBrush(activeColor);
+                    g.FillPath(brush, path);
                 }
                 else
                 {
@@ -1307,14 +1395,16 @@ namespace KeyboardDiagnostic
             }
         }
 
-        private static void FillMousePart(Graphics g, GraphicsPath path, Rectangle rect, bool pressed, Color normColor, Color actColor, Color actEndColor)
+        private void FillMousePart(Graphics g, GraphicsPath path, bool pressed, Color activeColor)
         {
             if (pressed)
             {
-                using (LinearGradientBrush brush = new LinearGradientBrush(rect, actColor, actEndColor, 45f))
-                {
-                    g.FillPath(brush, path);
-                }
+                using SolidBrush brush = new SolidBrush(activeColor);
+                g.FillPath(brush, path);
+            }
+            else
+            {
+                g.FillPath(_keyNormalBrush, path);
             }
         }
 
