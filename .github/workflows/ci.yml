@@ -111,15 +111,23 @@ jobs:
           name: KeyboardMonitor-${{ github.ref_name }}
           path: .\release
 
-      - name: Create GitHub Release
+      - name: Create or update GitHub Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_REPOSITORY: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: >-
-          gh release create "$env:RELEASE_TAG"
-          --repo "$env:RELEASE_REPOSITORY"
-          --title "KeyboardMonitor $env:RELEASE_TAG"
-          --generate-notes
-          .\release\KeyboardMonitor.exe .\release\SHA256SUMS.txt
+        run: |
+          $releaseExists = $false
+          try {
+            gh release view "$env:RELEASE_TAG" --repo "$env:RELEASE_REPOSITORY" 2>$null
+            if ($LASTEXITCODE -eq 0) { $releaseExists = $true }
+          } catch {}
+
+          if ($releaseExists) {
+            Write-Host "Release $env:RELEASE_TAG already exists. Uploading/updating assets with --clobber..."
+            gh release upload "$env:RELEASE_TAG" --repo "$env:RELEASE_REPOSITORY" --clobber .\release\KeyboardMonitor.exe .\release\SHA256SUMS.txt
+          } else {
+            Write-Host "Creating new release $env:RELEASE_TAG..."
+            gh release create "$env:RELEASE_TAG" --repo "$env:RELEASE_REPOSITORY" --title "KeyboardMonitor $env:RELEASE_TAG" --generate-notes .\release\KeyboardMonitor.exe .\release\SHA256SUMS.txt
+          }

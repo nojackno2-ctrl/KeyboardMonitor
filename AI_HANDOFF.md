@@ -126,3 +126,8 @@
 - Verification checkpoint: `dotnet build .\KeyboardMonitor.csproj -c Release --no-restore` succeeded with 0 warnings and 0 errors; the existing custom test runner passed all 10/10 groups, including cached paint resource/control disposal lifetime checks.
 - Accessibility pre-flight verified palette contrast for primary/secondary/muted text, accent controls, semantic log/status colors, and pressed/stuck key labels at WCAG AA or better. Interactive selector, reset button, typing field, and event log now participate in Tab order with accessible names/descriptions; custom key and mouse visualizers remain non-focusable status surfaces.
 - Live visual QA could not be completed: the bundled Computer Use helper failed initialization twice with `EPERM` while resolving the Codex install directory. No screenshot, interactive layout inspection, or live hook behavior is claimed from this attempt.
+
+## 2026-08-25 Workflow release resilience update
+
+- Updated `.github/workflows/ci.yml` release step to check if a release already exists before creating.
+- If the release already exists, it gracefully uploads/updates assets using `gh release upload --clobber` instead of failing with an exit code error.
