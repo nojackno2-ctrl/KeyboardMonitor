@@ -6,3 +6,10 @@
 - 每次重要程式修改、診斷發現、失敗嘗試或驗證結果後，立即更新 `AI_HANDOFF.md`。
 - 只有實際執行過的建置、測試與操作才能宣稱成功。
 - 此專案是 Windows WinForms 鍵盤與滑鼠診斷工具；涉及全域輸入 Hook、UI 執行緒與原生資源生命週期時，優先確保安全解除與例外隔離。
+
+## Automatic commits (user authorization, 2026-10-05)
+
+- The user has authorized automatic local commits for all projects. After completing a task and appropriate verification, commit the task changes without asking for confirmation again; do not create empty commits.
+- Review the diff and preserve existing work. Include unrelated pre-existing changes only when the user explicitly requests committing them. Never commit secrets, credentials, or personal runtime data.
+- This standing authorization covers local commits only. Push, release, merge, rebase, reset, force-push, branch deletion, and destructive operations still require explicit authorization.
+- Record what was verified and any unverified behavior in `AI_HANDOFF.md`; never present a commit as proof that functionality works.
