@@ -1,5 +1,20 @@
 # AI Handoff
 
+## 2026-10-14 Antigravity: automatic commit and push to GitHub policy
+
+- User authorized automatic local commits and automatic push to GitHub for all projects; AGENTS.md now records the standing policy. A Git post-commit hook has been installed in `.git/hooks/post-commit` to automatically push the current branch to `origin` upon commit. Destructive operations (force-push, release, merge, rebase, reset, branch deletion) still require separate authorization.
+- Evidence: inspected branches, git remotes, and status across all repositories. Verified hook execution on Windows Git. Pushed existing unpushed commits where applicable.
+- Verification: git status clean, post-commit hook configured and tested, collaboration rules updated.
+- Status: auto-push policy established and active.
+
+## 2026-10-05 Codex: automatic local commit policy
+
+- User authorized automatic local commits without further confirmation; AGENTS.md now records the standing policy. Push/release/history changes require separate authorization.
+- Evidence: inspected branch, git status, git diff, and git log; reviewed collaboration rules and handoff. The initial working tree was clean; this task changes collaboration documentation only.
+- Verification: full staged git diff --cached --check passed; automatic commit wording and remaining authorization limits were checked. Documentation-only work; no build/runtime validation was needed.
+- Status: automatic commit policy established; this record accompanies the authorized local snapshot. No build/test or runtime behavior is claimed by this snapshot task.
+
+
 ## 2026-08-12 v1.0.1 publication
 
 - Published GitHub Release `v1.0.1` from `4407a4eda4bdce06d122a04acc84802353a629bb`; tag workflow succeeded. Downloaded EXE SHA-256 `4C5D703D3768E35B258B0D82E5B0C7DCBB1735E66BE486055BC3445C1785DA6B` matched GitHub and checksum. No existing installed copy was found, so no new install location was invented.

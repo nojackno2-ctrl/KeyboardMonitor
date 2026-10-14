@@ -6,3 +6,12 @@
 - 每次重要程式修改、診斷發現、失敗嘗試或驗證結果後，立即更新 `AI_HANDOFF.md`。
 - 只有實際執行過的建置、測試與操作才能宣稱成功。
 - 此專案是 Windows WinForms 鍵盤與滑鼠診斷工具；涉及全域輸入 Hook、UI 執行緒與原生資源生命週期時，優先確保安全解除與例外隔離。
+
+## Automatic commits and push to GitHub (user authorization, 2026-10-14)
+
+- The user has authorized automatic local commits and automatic push to GitHub for all projects.
+- After completing a task and appropriate verification, commit the task changes and push to GitHub (`origin`) without asking for confirmation again; do not create empty commits.
+- Review the diff and preserve existing work. Include unrelated pre-existing changes only when the user explicitly requests committing them. Never commit secrets, credentials, or personal runtime data.
+- This standing authorization covers local commits and pushing verified work to GitHub. Destructive operations (force-push, release, merge, rebase, reset, branch deletion) still require explicit authorization.
+- A Git `post-commit` hook is configured in `.git/hooks/post-commit` to automatically push the current branch to `origin` upon commit.
+- Record what was verified and any unverified behavior in `AI_HANDOFF.md`; never present a commit as proof that functionality works.
