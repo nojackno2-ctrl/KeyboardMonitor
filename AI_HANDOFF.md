@@ -1,5 +1,14 @@
 # AI Handoff
 
+## 2026-10-17 Codex: desktop Rust/release audit completed
+
+- Scope: feasibility/release evidence only; initial tree clean. No source/version/workflow edits, commit/push/merge/prune/branch deletion/tag/publish, installs or security changes.
+- Evidence: fetch origin (no prune), ls-remote heads/tags, all local/remote branch ancestry, gh release/assets/CI and source manifests reviewed. main 6261337566593d2a3e2e7a6d5c0997a472b18b84 equals origin/main; no other branches. v1.0.2 tag bf4e2978c14883bd1331456a5cf0107f1ea494f0 is ancestor; only collaboration docs differ from HEAD, no executable delta. Restore/build/formats/publish pass; 0 warnings/errors; 10/10 regression groups. Single audit EXE artifacts/audit-2026-10-17/KeyboardMonitor.exe SHA256 2FFDC2E71710FE09029194D1A1A32FFD421EABC2B3A4F184BED12716955D72B4. HEAD CI and latest tag CI success; older tag reruns failed release creation on existing releases, builds/tests passed. Rust feasible; Win32 hooks/UI/resource lifetime must preserve behavior. Keep v1.0.2; optional next rebuild version 1.0.3.
+- All four are non-Rust; no tracked Cargo manifests or Rust source. New build candidates are unsigned and unpublished. Downloaded latest checksum metadata verified where releases exist; no remote full-binary rehash or fresh interactive UI/hook/GPU/sensor/installer acceptance claimed.
+- Detailed commands, digests, migration risks, blockers and release decisions: D:/Github/audit-desktop-2026-10-17.md. All own checks finished; no live process handles. Only this handoff changed in tracked files; preserve earlier notes.
+
+- 2026-10-17 Codex parent verification: downloaded all current release assets; every SHA256 matches GitHub digest. Evidence: D:/Github/release-audit-2026-10-17/KeyboardMonitor/verification.json. No executable source change requires a new version.
+
 ## 2026-10-14 Antigravity: automatic commit and push to GitHub policy
 
 - User authorized automatic local commits and automatic push to GitHub for all projects; AGENTS.md now records the standing policy. A Git post-commit hook has been installed in `.git/hooks/post-commit` to automatically push the current branch to `origin` upon commit. Destructive operations (force-push, release, merge, rebase, reset, branch deletion) still require separate authorization.
